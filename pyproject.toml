@@ -2,7 +2,7 @@
 name = "dockersetup"
 version = "1.0.0"
 description = "Cross-platform python-based Docker media stack setup script"
-authors = ["Antigravity <antigravity@google.com>"]
+authors = ["suuift <suuift@gmail.com>"]
 readme = "README.md"
 packages = [{include = "dockersetup.py"}]
 

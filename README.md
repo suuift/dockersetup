@@ -2,7 +2,7 @@
 
 A professional-grade, cross-platform Python automation suite for deploying a complete Media and Home Server stack on Windows and Linux using Docker.
 
-## 🚀 Key Features
+## Key Features
 
 *   **Cross-Platform Portability:** Runs seamlessly on both Windows and Linux environments.
 *   **Stateless Builder Architecture:** The project root remains clean. All configurations, state files, and deployment logic are written directly to your chosen target directory.
@@ -14,7 +14,7 @@ A professional-grade, cross-platform Python automation suite for deploying a com
 *   **Advanced Stitching:** Automatically links services (e.g., Prowlarr to PVRs, FlareSolverr to Prowlarr, Seerr to Radarr) during installation.
 *   **Concurrent Image Downloads:** Employs a thread pool to download service images concurrently, significantly speeding up deployment.
 
-## 📋 Requirements
+## Requirements
 
 Before starting, ensure your system meets the following criteria:
 
@@ -24,7 +24,7 @@ Before starting, ensure your system meets the following criteria:
 
 ---
 
-## ⚡ Quick Start
+## Quick Start
 
 ### 1. Set Up the Environment
 
@@ -60,7 +60,7 @@ Follow the interactive menus to select your installation tier, configure your cr
 
 ---
 
-## 📦 Service Catalog
+## Service Catalog
 
 ### Minimal Setup (Core Media)
 Plex, Jellyfin, Tautulli, Sonarr, Radarr, Lidarr, Bazarr, Prowlarr, FlareSolverr, qBittorrent, SABnzbd, Seerr, Recyclarr, Watchtower, Docker-Prune, Homepage.
@@ -75,7 +75,7 @@ Plex, Jellyfin, Tautulli, Sonarr, Radarr, Lidarr, Bazarr, Prowlarr, FlareSolverr
 
 ---
 
-## 🔧 Maintenance & Compilation
+## Maintenance & Compilation
 
 ### Self-Updates
 The installer checks for updates on launch. If a new version is available, it pulls changes and swaps binaries cleanly if running from a compiled executable.
@@ -104,6 +104,6 @@ pytest tests/test_runtime.py
 
 ---
 
-## 💡 Notes for Plex Users
+## Notes for Plex Users
 *   **Plex Claim:** Get your token from [plex.tv/claim](https://www.plex.tv/claim) to automatically sign in your server.
 *   **Transcoding:** The Plex template is pre-configured with `NVIDIA_VISIBLE_DEVICES=all` for hardware acceleration support.
