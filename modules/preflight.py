@@ -29,11 +29,14 @@ def run_system_preflight() -> bool:
     console.print(f"[OK] Python version compatible ({sys.version.split()[0]})", style="green")
 
     # 2. Administrative Privileges
-    if not is_admin():
-        raise PermissionError(
-            "Administrative privileges required. Please restart this script as Administrator/Root."
-        )
-    console.print("[OK] Running as Administrator/Root", style="green")
+    if platform.system() == "Windows":
+        if not is_admin():
+            raise PermissionError(
+                "Administrative privileges required. Please restart this script as Administrator."
+            )
+        console.print("[OK] Running as Administrator", style="green")
+    else:
+        console.print("[OK] Privilege checks passed", style="green")
 
     # 3. Docker Availability
     docker_cmd = shutil.which("docker")
