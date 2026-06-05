@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "dockersetupscriptpy"
+name = "dockersetup"
 version = "1.0.0"
 description = "Cross-platform python-based Docker media stack setup script"
 authors = ["Antigravity <antigravity@google.com>"]
