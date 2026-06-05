@@ -8,7 +8,7 @@ import re
 import socket
 import questionary
 from tzlocal import get_localzone_name
-from utils.paths import get_project_root, get_deploy_dir
+from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
 from utils.logger import write_log, console
 from utils.state import get_metadata, save_env_vars
 
@@ -101,7 +101,7 @@ def configure_environment() -> bool:
 
     # Timezone detection
     try:
-        detected_tz = get_localzone_name()
+        detected_tz = get_localzone_name() or "UTC"
     except Exception:
         detected_tz = "UTC"
 
