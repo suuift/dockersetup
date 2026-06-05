@@ -123,7 +123,8 @@ def configure_environment() -> bool:
     console.print("\n--- Path Configuration ---", style="yellow")
     docker_dir = deploy_dir
     write_log(f"Docker Directory: {docker_dir}")
-    drive_pool = get_validated_input("Media folder directory", "H:/Media")
+    default_drive_pool = "H:/Media" if platform.system() == "Windows" else resolve_path_slash(os.path.expanduser("~/media"))
+    drive_pool = get_validated_input("Media folder directory", default_drive_pool)
 
     # File browser extra mounts (Edge Case 16)
     extra_mounts = ""

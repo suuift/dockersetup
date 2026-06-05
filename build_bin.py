@@ -4,12 +4,11 @@ import platform
 import subprocess
 import shutil
 
-def run_local_build(pyinstaller_cmd: str, data_sep: str, project_root: str):
+def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
     """
     Runs PyInstaller locally for the host OS.
     """
-    cmd = [
-        pyinstaller_cmd,
+    cmd = pyinstaller_cmd + [
         "--onefile",
         "--clean",
         "--add-data", f"services.yml{data_sep}.",
@@ -85,21 +84,7 @@ def main():
     host_os = platform.system()
     data_sep = ";" if host_os == "Windows" else ":"
     
-    pyinstaller_cmd = "pyinstaller"
-    venv_bin_dir = "Scripts" if host_os == "Windows" else "bin"
-    venv_pyinstaller = os.path.join(project_root, ".venv", venv_bin_dir, "pyinstaller")
-    if host_os == "Windows":
-        venv_pyinstaller += ".exe"
-        
-    if os.path.exists(venv_pyinstaller):
-        pyinstaller_cmd = venv_pyinstaller
-    else:
-        global_path = shutil.which("pyinstaller")
-        if global_path:
-            pyinstaller_cmd = global_path
-        else:
-            print("[ERROR] PyInstaller not found locally. Please run: pip install pyinstaller")
-            sys.exit(1)
+    pyinstaller_cmd = [sys.executable, "-m", "PyInstaller"]
 
     # 2. Run local build
     local_success = run_local_build(pyinstaller_cmd, data_sep, project_root)

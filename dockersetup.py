@@ -100,14 +100,22 @@ def invoke_token_wizard(target_dir: str):
                 except Exception:
                     pass
 
+def get_default_deployment_dir() -> str:
+    if sys.platform == "win32":
+        return "C:/docker"
+    if hasattr(os, "geteuid") and os.geteuid() == 0:
+        return "/opt/docker"
+    return resolve_path_slash(os.path.expanduser("~/docker"))
+
 def get_deployment_dir_interactive(project_root: str, required: bool = True) -> str:
     console.print("\n--- Deployment Folder Selection ---", style="yellow")
+    default_path = get_default_deployment_dir()
     if os.getenv("DS_HEADLESS") == "true":
-        path = "C:/docker"
+        path = default_path
     else:
-        path = questionary.text("Please provide the full path to your Docker deployment folder (default: C:/docker):").ask()
+        path = questionary.text(f"Please provide the full path to your Docker deployment folder (default: {default_path}):").ask()
         if not path or not path.strip():
-            path = "C:/docker"
+            path = default_path
         else:
             path = path.strip().replace("'", "").replace('"', "")
 
