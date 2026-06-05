@@ -226,8 +226,8 @@ def auto_stitch_services() -> bool:
                 with open(sab_ini, "r", encoding="utf-8") as f:
                     ini_content = f.read()
                 
-                new_ini = re.sub(r"^username\s*=.*", f"username = {http_user}", ini_content, flags=re.MULTILINE)
-                new_ini = re.sub(r"^password\s*=.*", f"password = {http_pass}", new_ini, flags=re.MULTILINE)
+                new_ini = re.sub(r"^username\s*=.*", lambda m: f"username = {http_user}", ini_content, flags=re.MULTILINE)
+                new_ini = re.sub(r"^password\s*=.*", lambda m: f"password = {http_pass}", new_ini, flags=re.MULTILINE)
                 
                 with open(sab_ini, "w", encoding="utf-8") as f:
                     f.write(new_ini)

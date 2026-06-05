@@ -1,4 +1,4 @@
-# DockerSetup (Python)
+# DockerSetup
 
 A professional-grade, cross-platform Python automation suite for deploying a complete Media and Home Server stack on Windows and Linux using Docker.
 

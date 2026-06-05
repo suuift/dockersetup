@@ -240,8 +240,8 @@ def configure_environment() -> bool:
     if platform.system() == "Windows":
         try:
             # Query username
-            import win32api
-            username = win32api.GetUserName()
+            import getpass
+            username = getpass.getuser()
             # Windows icacls hardening
             subprocess.run(f'icacls "{env_file}" /inheritance:r /grant "{username}:F" /grant "*S-1-5-32-544:F"', shell=True, capture_output=True)
             write_log("Restricted permissions on .env (NTFS icacls).")

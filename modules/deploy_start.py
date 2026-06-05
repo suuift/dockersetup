@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import json
 import time
 import subprocess
@@ -22,7 +23,6 @@ def test_container_conflict(stack_path: str, stack_name: str):
             if match:
                 container_names.append(match.group(1).strip())
 
-    import re
     for name in container_names:
         # Check if container exists
         exists_proc = subprocess.run(
