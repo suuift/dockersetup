@@ -45,11 +45,11 @@ def run_system_preflight() -> bool:
 
     try:
         docker_version = subprocess.check_output(
-            ["docker", "version", "--format", "{{.Server.Version}}"],
+            ["docker", "--version"],
             text=True,
             stderr=subprocess.DEVNULL
         ).strip()
-        console.print(f"[OK] Docker Engine detected (v{docker_version})", style="green")
+        console.print(f"[OK] {docker_version} detected", style="green")
     except Exception:
         raise RuntimeError("Docker daemon is not running or accessible. Please start Docker.")
 
