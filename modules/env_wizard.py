@@ -6,6 +6,7 @@ import platform
 import subprocess
 import re
 import socket
+import shutil
 import questionary
 from tzlocal import get_localzone_name
 from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
@@ -87,6 +88,54 @@ def detect_lan_network() -> str:
     except Exception:
         return "192.168.1.0/24"
 
+def detect_timezone() -> str:
+    if platform.system() == "Windows":
+        try:
+            return get_localzone_name() or "UTC"
+        except Exception:
+            return "UTC"
+            
+    # Linux/macOS robust detection
+    tz = None
+    try:
+        # 1. TZ env variable
+        if os.environ.get("TZ"):
+            tz = os.environ["TZ"]
+            
+        # 2. /etc/timezone file
+        if not tz and os.path.exists("/etc/timezone"):
+            with open("/etc/timezone", "r") as f:
+                val = f.read().strip()
+                if val:
+                    tz = val
+                    
+        # 3. /etc/localtime symlink resolution
+        if not tz and os.path.exists("/etc/localtime"):
+            real_path = os.path.realpath("/etc/localtime")
+            if "zoneinfo/" in real_path:
+                tz = real_path.split("zoneinfo/")[-1]
+                
+        # 4. timedatectl query
+        if not tz and shutil.which("timedatectl"):
+            res = subprocess.run(
+                ["timedatectl", "show", "--property=Timezone", "--value"],
+                capture_output=True, text=True, timeout=2
+            )
+            if res.returncode == 0:
+                val = res.stdout.strip()
+                if val:
+                    tz = val
+    except Exception:
+        pass
+        
+    if tz:
+        return tz
+        
+    try:
+        return get_localzone_name() or "UTC"
+    except Exception:
+        return "UTC"
+
 def configure_environment() -> bool:
     write_log("Starting configuration wizard...")
     
@@ -100,10 +149,7 @@ def configure_environment() -> bool:
     console.print("\n--- System Configuration ---", style="yellow")
 
     # Timezone detection
-    try:
-        detected_tz = get_localzone_name() or "UTC"
-    except Exception:
-        detected_tz = "UTC"
+    detected_tz = detect_timezone()
 
     tz = get_validated_input("System Timezone", detected_tz)
     puid = get_validated_input("PUID (User ID)", "1000", r"^\d+$", "Must be numeric")
