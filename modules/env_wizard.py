@@ -7,7 +7,9 @@ import subprocess
 import re
 import socket
 import shutil
+import datetime
 import questionary
+from zoneinfo import ZoneInfo
 from tzlocal import get_localzone_name
 from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
 from utils.logger import write_log, console
@@ -131,10 +133,80 @@ def detect_timezone() -> str:
     if tz:
         return tz
         
+COMMON_ZONES = [
+    "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
+    "America/Phoenix", "America/Anchorage", "Pacific/Honolulu", "America/Halifax",
+    "America/Toronto", "America/Vancouver", "America/Mexico_City", "America/Bogota", 
+    "America/Lima", "America/Santiago", "America/Argentina/Buenos_Aires", "America/Sao_Paulo",
+    "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Rome", "Europe/Moscow",
+    "Africa/Lagos", "Africa/Cairo", "Africa/Nairobi", "Asia/Jerusalem", "Asia/Riyadh",
+    "Asia/Tehran", "Asia/Dubai", "Asia/Kabul", "Asia/Karachi", "Asia/Kolkata", 
+    "Asia/Colombo", "Asia/Bangkok", "Asia/Jakarta", "Asia/Shanghai", "Asia/Singapore", 
+    "Asia/Taipei", "Asia/Tokyo", "Asia/Seoul", "Australia/Perth", "Australia/Adelaide", 
+    "Australia/Darwin", "Australia/Sydney", "Australia/Melbourne", "Pacific/Auckland", 
+    "Pacific/Fiji"
+]
+
+def select_timezone_interactive(detected_tz: str) -> str:
+    if os.getenv("DS_HEADLESS") == "true":
+        return detected_tz
+
+    # Get active local offset
     try:
-        return get_localzone_name() or "UTC"
+        utc_now = datetime.datetime.now(datetime.timezone.utc)
+        local_now = utc_now.astimezone()
+        offset_seconds = local_now.utcoffset().total_seconds()
+        user_offset = offset_seconds / 3600.0
     except Exception:
-        return "UTC"
+        return get_validated_input("System Timezone", detected_tz)
+
+    guessed_tz = detected_tz
+    if guessed_tz == "UTC" and user_offset != 0:
+        # Find a better regional guess from offset
+        for zone in COMMON_ZONES:
+            try:
+                tz_offset = utc_now.astimezone(ZoneInfo(zone)).utcoffset().total_seconds() / 3600.0
+                if tz_offset == user_offset:
+                    guessed_tz = zone
+                    break
+            except Exception:
+                pass
+
+    confirm_msg = f"We detected your timezone as '{guessed_tz}'. Is this correct?"
+    confirm = questionary.confirm(confirm_msg, default=True).ask()
+    if confirm:
+        return guessed_tz
+
+    # Filter common timezones matching user's offset
+    matching_choices = []
+    for zone in COMMON_ZONES:
+        try:
+            tz_offset = utc_now.astimezone(ZoneInfo(zone)).utcoffset().total_seconds() / 3600.0
+            if tz_offset == user_offset:
+                matching_choices.append(zone)
+        except Exception:
+            pass
+
+    # Ensure POSIX Etc/GMT fallback is present
+    sign = "+" if user_offset < 0 else "-"
+    hours = abs(round(user_offset))
+    gmt_zone = "UTC" if user_offset == 0 else f"Etc/GMT{sign}{hours}"
+    if gmt_zone not in matching_choices:
+        matching_choices.append(gmt_zone)
+
+    matching_choices.sort()
+    manual_option = "[Type timezone manually]"
+    matching_choices.append(manual_option)
+
+    choice = questionary.select(
+        f"Select your timezone (matching UTC offset {user_offset:+.1f}):",
+        choices=matching_choices
+    ).ask()
+
+    if choice == manual_option:
+        return get_validated_input("System Timezone", guessed_tz)
+
+    return choice
 
 def configure_environment() -> bool:
     write_log("Starting configuration wizard...")
@@ -150,8 +222,7 @@ def configure_environment() -> bool:
 
     # Timezone detection
     detected_tz = detect_timezone()
-
-    tz = get_validated_input("System Timezone", detected_tz)
+    tz = select_timezone_interactive(detected_tz)
     puid = get_validated_input("PUID (User ID)", "1000", r"^\d+$", "Must be numeric")
     pgid = get_validated_input("PGID (Group ID)", "1000", r"^\d+$", "Must be numeric")
 
