@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import questionary
 from rich.console import Console
+from utils.paths import get_clean_env
 
 console = Console()
 
@@ -65,7 +66,7 @@ def main():
         
         try:
             # Run docker compose down
-            result = subprocess.run(down_args, cwd=full_path)
+            result = subprocess.run(down_args, cwd=full_path, env=get_clean_env())
             if result.returncode != 0:
                 console.print(f"[!] Warning: Docker Compose down failed for stack '{stack}'.", style="bold red")
                 failed_stacks.append(stack)

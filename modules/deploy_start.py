@@ -6,7 +6,7 @@ import time
 import subprocess
 import questionary
 from concurrent.futures import ThreadPoolExecutor
-from utils.paths import get_project_root, get_deploy_dir
+from utils.paths import get_project_root, get_deploy_dir, get_clean_env
 from utils.logger import write_log, console, write_step, invoke_external_command
 from utils.state import get_metadata
 
@@ -28,14 +28,20 @@ def test_container_conflict(stack_path: str, stack_name: str):
         exists_proc = subprocess.run(
             ["docker", "ps", "-a", "--filter", f"name=^/{name}$", "-q"],
             capture_output=True,
-            text=True
+            text=True,
+            env=get_clean_env()
         )
         exists = exists_proc.stdout.strip()
         
         if exists:
             existing_stack = ""
             try:
-                inspect_proc = subprocess.run(["docker", "inspect", name], capture_output=True, text=True)
+                inspect_proc = subprocess.run(
+                    ["docker", "inspect", name],
+                    capture_output=True,
+                    text=True,
+                    env=get_clean_env()
+                )
                 inspect = json.loads(inspect_proc.stdout)
                 if inspect and inspect[0].get("Config", {}).get("Labels"):
                     existing_stack = inspect[0]["Config"]["Labels"].get("com.docker.compose.project", "")
@@ -51,7 +57,7 @@ def test_container_conflict(stack_path: str, stack_name: str):
                 choice = questionary.confirm(f"Remove existing container to allow stack '{stack_name}' to start?", default=False).ask()
                 if choice:
                     write_log(f"Removing conflicting container: {name}", level="INFO")
-                    subprocess.run(["docker", "rm", "-f", name], capture_output=True)
+                    subprocess.run(["docker", "rm", "-f", name], capture_output=True, env=get_clean_env())
                 else:
                     raise RuntimeError(f"Deployment aborted due to container name conflict: {name}")
 
@@ -62,7 +68,8 @@ def pull_stack_images(stack_name: str, stack_path: str) -> str:
             ["docker", "compose", "-p", stack_name, "pull", "--quiet"],
             cwd=stack_path,
             check=True,
-            capture_output=True
+            capture_output=True,
+            env=get_clean_env()
         )
         return f"SUCCESS: Pull complete for {stack_name}"
     except Exception as e:

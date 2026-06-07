@@ -34,3 +34,14 @@ def get_deploy_dir() -> str:
     if os.getenv("DEPLOY_DIR"):
         return resolve_path_slash(os.getenv("DEPLOY_DIR"))
     return get_project_root()
+
+def get_clean_env() -> dict:
+    env = os.environ.copy()
+    # PyInstaller overrides library paths, polluting subprocesses. Restore original if present.
+    for var in ["LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH"]:
+        orig_var = var + "_ORIG"
+        if orig_var in env:
+            env[var] = env[orig_var]
+        else:
+            env.pop(var, None)
+    return env

@@ -1,6 +1,7 @@
 import os
 import subprocess
 from utils.logger import write_log, console
+from utils.paths import get_clean_env
 
 def setup_networks() -> bool:
     console.print("\n--- Network Setup ---", style="cyan")
@@ -24,7 +25,8 @@ def setup_networks() -> bool:
                 ["docker", "network", "ls", "--filter", f"name=^{net_name}$", "--format", "{{.Name}}"],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
+                env=get_clean_env()
             )
             exists = proc.stdout.strip()
             
@@ -32,7 +34,8 @@ def setup_networks() -> bool:
                 write_log(f"Creating external network: {net_name} ({subnet})", level="INFO")
                 subprocess.run(
                     ["docker", "network", "create", net_name, f"--subnet={subnet}"],
-                    check=True
+                    check=True,
+                    env=get_clean_env()
                 )
                 console.print(f"[OK] Network '{net_name}' created", style="green")
             else:
