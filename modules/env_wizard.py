@@ -130,8 +130,16 @@ def detect_timezone() -> str:
     except Exception:
         pass
         
-    if tz:
+    if tz and tz != "None":
         return tz
+        
+    try:
+        val = get_localzone_name()
+        if val and val != "None":
+            return val
+        return "UTC"
+    except Exception:
+        return "UTC"
         
 COMMON_ZONES = [
     "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
@@ -148,7 +156,26 @@ COMMON_ZONES = [
 ]
 
 def select_timezone_interactive(detected_tz: str) -> str:
+    # Normalize None / "None" input
+    if not detected_tz or detected_tz == "None":
+        detected_tz = "UTC"
+
     if os.getenv("DS_HEADLESS") == "true":
+        if detected_tz == "UTC":
+            try:
+                utc_now = datetime.datetime.now(datetime.timezone.utc)
+                local_now = utc_now.astimezone()
+                user_offset = local_now.utcoffset().total_seconds() / 3600.0
+                if user_offset != 0:
+                    for zone in COMMON_ZONES:
+                        try:
+                            tz_offset = utc_now.astimezone(ZoneInfo(zone)).utcoffset().total_seconds() / 3600.0
+                            if tz_offset == user_offset:
+                                return zone
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         return detected_tz
 
     # Get active local offset
