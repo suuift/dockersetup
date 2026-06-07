@@ -75,18 +75,19 @@ def write_log(message: str, level: str = "INFO", clear: bool = False):
 def write_step(message: str, level: str = "INFO"):
     write_log(f">> {message}", level=level)
 
-def invoke_external_command(command: str, description: str = "Executing command"):
+def invoke_external_command(command: str, description: str = "Executing command", cwd: str = None):
     write_log(f"{description}: {command}", level="TRACE")
     prefix = "    | "
     
-    # Run shell execution depending on OS
-    use_shell = sys.platform == "win32"
+    # Run shell execution on all OSes to handle single command string correctly
+    use_shell = True
     
     try:
         # Stream output line-by-line to prevent subprocess pipe deadlock
         process = subprocess.Popen(
             command,
             shell=use_shell,
+            cwd=cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

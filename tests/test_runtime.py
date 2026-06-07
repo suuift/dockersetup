@@ -92,3 +92,22 @@ def test_directory_setup():
     assert os.path.exists(os.path.join(TEST_DEPLOY_DIR, "appdata/radarr/config"))
     assert os.path.exists(os.path.join(TEST_DEPLOY_DIR, "stacks"))
     assert os.path.exists(os.path.join(TEST_DEPLOY_DIR, "media/downloads"))
+
+def test_timezone_detection():
+    from modules.env_wizard import detect_timezone, select_timezone_interactive
+    
+    # 1. Test detect_timezone returns a string (not None or "None")
+    tz = detect_timezone()
+    assert tz is not None
+    assert tz != "None"
+    
+    # 2. Test select_timezone_interactive behaves correctly in headless mode
+    interactive_tz = select_timezone_interactive(tz)
+    assert interactive_tz is not None
+    assert interactive_tz != "None"
+    
+    # 3. Test that None/"None" input fallback logic resolves to a valid timezone/UTC
+    fallback_tz = select_timezone_interactive("None")
+    assert fallback_tz is not None
+    assert fallback_tz != "None"
+

@@ -98,7 +98,8 @@ def deploy_stacks() -> bool:
                 # Execute docker compose up (using standard streaming to prevent pipe deadlock - Edge Case 9)
                 invoke_external_command(
                     "docker compose -p core up -d --quiet-pull --remove-orphans",
-                    description="Starting CORE stack"
+                    description="Starting CORE stack",
+                    cwd=path
                 )
             except Exception:
                 raise RuntimeError("Failed to start CORE stack. Check if Docker is running and ports 80/443 are free.")
@@ -157,7 +158,8 @@ def deploy_stacks() -> bool:
             try:
                 invoke_external_command(
                     f"docker compose -p {name} up -d --remove-orphans",
-                    description=f"Starting {name}"
+                    description=f"Starting {name}",
+                    cwd=path
                 )
                 
                 # Verification
