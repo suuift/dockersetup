@@ -9,13 +9,13 @@ The fastest way to deploy DockerSetup is using the pre-compiled standalone binar
 ### Windows (PowerShell)
 Run this command in an Administrative PowerShell session to download and start the setup wizard immediately:
 ```powershell
-powershell -Command "Invoke-WebRequest -Uri 'https://github.com/suuift/dockersetup/releases/download/v1.5.6/dockersetup.exe' -OutFile 'dockersetup.exe'; .\dockersetup.exe"
+powershell -Command "Invoke-WebRequest -Uri 'https://github.com/suuift/dockersetup/releases/download/v1.5.7/dockersetup.exe' -OutFile 'dockersetup.exe'; .\dockersetup.exe"
 ```
 
 ### Linux (Shell)
 Run this command in your terminal:
 ```bash
-curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/download/v1.5.6/dockersetup && chmod +x dockersetup && ./dockersetup
+curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/download/v1.5.7/dockersetup && chmod +x dockersetup && ./dockersetup
 ```
 
 ---

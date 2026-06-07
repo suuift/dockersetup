@@ -1,3 +1,8 @@
+# ##############################################################################
+# CRITICAL: DO NOT AUTO-FORMAT THIS FILE WITH STANDARD YAML TOOLS (yq, prettier, etc.)
+# This file uses a custom line-based block scalar format for multi-stack generation.
+# Reformatting will break the custom parser in utils/yaml_parser.py.
+# ##############################################################################
 # Service Templates for dynamic generation
 # -----------------------------------------------------
 
