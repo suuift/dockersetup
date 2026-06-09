@@ -5,6 +5,19 @@ from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
 from src.utils.logger import write_log, console, write_step
 from src.utils.state import get_metadata
 
+def secure_dir_recursive(path: str, uid: int, gid: int):
+    if platform.system() == "Windows" or not hasattr(os, "getuid") or os.getuid() != 0:
+        return
+    try:
+        os.chown(path, uid, gid)
+        for root, dirs, files in os.walk(path):
+            for d in dirs:
+                os.chown(os.path.join(root, d), uid, gid)
+            for f in files:
+                os.chown(os.path.join(root, f), uid, gid)
+    except OSError as e:
+        write_log(f"Warning: Could not set ownership to {uid}:{gid} for {path}. Error: {str(e)}", level="WARN")
+
 def setup_directories() -> bool:
     write_step("Setting up folder directory structure")
 
@@ -102,6 +115,18 @@ def setup_directories() -> bool:
     if not os.path.exists(htpasswd_path):
         with open(htpasswd_path, "w", encoding="utf-8") as f:
             pass
+
+    try:
+        puid_val = int(env_vars.get("PUID", "1000"))
+        pgid_val = int(env_vars.get("PGID", "1000"))
+    except ValueError:
+        puid_val = 1000
+        pgid_val = 1000
+
+    secure_dir_recursive(docker_dir, puid_val, pgid_val)
+    for folder in media_folders:
+        path = resolve_path_slash(os.path.join(drive_pool, folder))
+        secure_dir_recursive(path, puid_val, pgid_val)
 
     console.print("[✓] Directory structure ready", style="green")
     return True

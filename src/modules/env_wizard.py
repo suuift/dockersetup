@@ -281,8 +281,10 @@ def configure_environment() -> bool:
     # Timezone detection
     detected_tz = detect_timezone()
     tz = select_timezone_interactive(detected_tz)
-    puid = get_validated_input("PUID (User ID)", "1000", r"^\d+$", "Must be numeric")
-    pgid = get_validated_input("PGID (Group ID)", "1000", r"^\d+$", "Must be numeric")
+    default_puid = os.environ.get("SUDO_UID", "1000")
+    default_pgid = os.environ.get("SUDO_GID", "1000")
+    puid = get_validated_input("PUID (User ID)", default_puid, r"^\d+$", "Must be numeric")
+    pgid = get_validated_input("PGID (Group ID)", default_pgid, r"^\d+$", "Must be numeric")
 
     # Management Credentials
     http_user = get_validated_input("Management Username", "admin")
