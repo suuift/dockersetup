@@ -61,7 +61,7 @@ def test_container_conflict(stack_path: str, stack_name: str):
                 else:
                     raise RuntimeError(f"Deployment aborted due to container name conflict: {name}")
 
-def pull_stack_images(stack_name: str, stack_path: str) -> str:
+def pull_stack_images(stack_name: str, stack_path: str) -> dict:
     try:
         # Pull images for stack
         subprocess.run(
@@ -71,9 +71,9 @@ def pull_stack_images(stack_name: str, stack_path: str) -> str:
             capture_output=True,
             env=get_clean_env()
         )
-        return f"SUCCESS: Pull complete for {stack_name}"
+        return {"name": stack_name, "success": True, "error": None}
     except Exception as e:
-        return f"WARN: Pull failed or timed out for {stack_name} - {str(e)}"
+        return {"name": stack_name, "success": False, "error": str(e)}
 
 def deploy_stacks() -> bool:
     write_log("Starting automated deployment...")
@@ -141,11 +141,67 @@ def deploy_stacks() -> bool:
                 time.sleep(5)
             console.print("[DONE]", style="green")
 
-            # Report any failures
+            # Report any failures and decide next steps
+            failed_pulls = []
             for t in pull_tasks:
                 res = t.result()
-                if "WARN" in res:
-                    write_log(res, level="WARN")
+                if not res["success"]:
+                    write_log(f"WARN: Pull failed or timed out for {res['name']} - {res['error']}", level="WARN")
+                    failed_pulls.append(res["name"])
+
+            if failed_pulls:
+                failed_list = ", ".join(failed_pulls)
+                console.print(f"\n[!] Pull failures occurred for stack(s): {failed_list}", style="bold yellow")
+                
+                is_headless = os.getenv("DS_HEADLESS") == "true" or not sys.stdin.isatty()
+                if is_headless:
+                    write_log(f"ERROR: Aborting deployment in headless mode due to image pull failures on stack(s): {failed_list}", level="ERROR")
+                    raise RuntimeError(f"Deployment aborted due to image pull failures: {failed_list}")
+                
+                choice = questionary.select(
+                    "Image pulling failed. How would you like to proceed?",
+                    choices=[
+                        "Abort deployment (Recommended)",
+                        "Ignore failures and proceed",
+                        "Retry pulling failed stacks"
+                    ],
+                    default="Abort deployment (Recommended)"
+                ).ask()
+                
+                if choice == "Retry pulling failed stacks":
+                    write_log("Retrying image pull for failed stacks...", level="INFO")
+                    retry_tasks = []
+                    with ThreadPoolExecutor(max_workers=3) as executor:
+                        for name in failed_pulls:
+                            path = os.path.join(stacks_dir, name)
+                            if os.path.exists(path):
+                                write_log(f"Queuing retry image pull for stack: {name}", level="INFO")
+                                retry_tasks.append(executor.submit(pull_stack_images, name, path))
+                    
+                    if retry_tasks:
+                        console.print("    | Retrying downloads... ", end="", style="white")
+                        start_pull = time.time()
+                        while not all(t.done() for t in retry_tasks):
+                            if (time.time() - start_pull) > 600:
+                                break
+                            console.print(".", end="")
+                            sys.stdout.flush()
+                            time.sleep(5)
+                        console.print("[DONE]", style="green")
+                        
+                        second_failed_pulls = []
+                        for t in retry_tasks:
+                            res = t.result()
+                            if not res["success"]:
+                                write_log(f"ERROR: Pull retry failed for {res['name']} - {res['error']}", level="ERROR")
+                                second_failed_pulls.append(res["name"])
+                        
+                        if second_failed_pulls:
+                            raise RuntimeError(f"Deployment aborted after retry due to image pull failures: {', '.join(second_failed_pulls)}")
+                elif choice == "Ignore failures and proceed":
+                    write_log("Proceeding with deployment despite pull failures...", level="WARN")
+                else:
+                    raise RuntimeError(f"Deployment aborted by user due to image pull failures on stack(s): {failed_list}")
 
     # 3. Start Stacks sequentially
     write_step("Initializing Service Containers (Sequenced)")
