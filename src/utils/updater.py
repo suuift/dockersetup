@@ -4,9 +4,16 @@ import subprocess
 import shutil
 import urllib.request
 import json
+import ssl
 import questionary
 from src.utils.paths import get_project_root, get_clean_env
 from src.utils.logger import write_log, console
+
+try:
+    import certifi
+    ssl_context = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    ssl_context = ssl.create_default_context()
 
 VERSION = "1.5.8"
 
@@ -83,7 +90,7 @@ def invoke_self_update(project_root: str) -> bool:
                 headers={"User-Agent": "DockerSetup-Updater"}
             )
             
-            with urllib.request.urlopen(req, timeout=5) as response:
+            with urllib.request.urlopen(req, timeout=5, context=ssl_context) as response:
                 data = json.loads(response.read().decode())
                 latest_tag = data.get("tag_name", "")
                 
@@ -141,7 +148,7 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
             download_url,
             headers={"User-Agent": "DockerSetup-Updater"}
         )
-        with urllib.request.urlopen(req) as response, open(temp_download_path, 'wb') as out_file:
+        with urllib.request.urlopen(req, context=ssl_context) as response, open(temp_download_path, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
             
         # 2. Rename running binary to .old (Windows allows renaming running binaries)
