@@ -126,6 +126,14 @@ def build_compose_stacks() -> bool:
             for var_name in var_matches:
                 required_vars.add(var_name)
 
+            # Special case for maintenance stack: Include all API keys and HTTP credentials for Homepage Widgets
+            if stack_name == "maintenance":
+                required_vars.update({"HTTP_USERNAME", "HTTP_PASSWORD"})
+                for line in master_env_lines:
+                    match = re.match(r"^([A-Z0-9_]+_API_KEY|[A-Z0-9_]+_TOKEN|[A-Z0-9_]+_KEY)=", line)
+                    if match:
+                        required_vars.add(match.group(1))
+
             # Filter and Write Stack-Local .env
             filtered_env = []
             for line in master_env_lines:
@@ -159,6 +167,7 @@ def build_compose_stacks() -> bool:
 
         hp_output = ""
         hp_env_mappings = []
+        active_hp_groups = []
 
         registry_list = get_registry_list(master_registry)
 
@@ -167,12 +176,19 @@ def build_compose_stacks() -> bool:
             for widget in master_registry["SUPPORTED_WIDGETS"]:
                 supported_widgets[widget.name] = widget.alias
 
+        def make_friendly_name(name: str) -> str:
+            # Converts 'media-pvr' to 'Media PVR', 'media-server' to 'Media Server'
+            parts = name.split('-')
+            return " ".join([p.upper() if p.lower() in ["pvr", "vpn"] else p.capitalize() for p in parts])
+
         for group in master_registry["STACK_GROUPS"]:
             stack_name = group.name
             stack_apps = [a for a in homepage_services if a["Stack"] == stack_name]
 
             if stack_apps:
-                hp_output += f"- {stack_name}:\n"
+                friendly_group_name = make_friendly_name(stack_name)
+                active_hp_groups.append(friendly_group_name)
+                hp_output += f"- {friendly_group_name}:\n"
                 for app in stack_apps:
                     svc_key = app["Name"]
                     
@@ -226,8 +242,12 @@ def build_compose_stacks() -> bool:
                         if "npm plus (+goaccess)" in selected_services and base_domain != "local.host":
                             url = f"https://{alias.split(' ')[0]}.{base_domain}"
 
+                        # Get a clean description from the registry entry type
+                        reg = next((e for e in registry_list if e.key == svc_key), None)
+                        description = reg.type.capitalize() if reg and hasattr(reg, 'type') else alias
+
                         hp_output += f"        href: {url}\n"
-                        hp_output += f"        description: {alias}\n"
+                        hp_output += f"        description: {description}\n"
                         hp_output += f"        ping: http://{clean_key}:{port}\n"
 
                         # --- WIDGET LOGIC ---
@@ -268,6 +288,65 @@ def build_compose_stacks() -> bool:
         # Write Homepage services.yaml
         with open(os.path.join(hp_path, "services.yaml"), "w", encoding="utf-8") as f:
             f.write(hp_output)
+
+        # Write Homepage settings.yaml (Layout configuration) - Safe Merge
+        from ruamel.yaml import YAML
+        yaml = YAML()
+        yaml.preserve_quotes = True
+        
+        settings_file = os.path.join(hp_path, "settings.yaml")
+        settings_data = {}
+        
+        if os.path.exists(settings_file):
+            try:
+                with open(settings_file, "r", encoding="utf-8") as f:
+                    loaded = yaml.load(f)
+                    if loaded:
+                        settings_data = loaded
+            except Exception as e:
+                write_log(f"Failed to load existing settings.yaml: {str(e)}", level="WARN")
+
+        # Set defaults if not present
+        if "title" not in settings_data:
+            settings_data["title"] = "Home Server Dashboard"
+        if "theme" not in settings_data:
+            settings_data["theme"] = "dark"
+        if "fullWidth" not in settings_data:
+            settings_data["fullWidth"] = True
+        
+        # Determine strict priority order for top rows
+        priority_order = ["Media Server", "Media PVR", "Downloaders", "Maintenance"]
+        ordered_groups = []
+        
+        # 1. Add priority groups if active
+        for p_group in priority_order:
+            if p_group in active_hp_groups:
+                ordered_groups.append(p_group)
+                
+        # 2. Add any remaining active groups
+        for a_group in active_hp_groups:
+            if a_group not in ordered_groups:
+                ordered_groups.append(a_group)
+                
+        # Build the layout dictionary
+        layout_list = []
+        for layout_group in ordered_groups:
+            # We construct a dict like: {"Media Server": {"style": "row", "columns": 4}}
+            layout_list.append({layout_group: {"style": "row", "columns": 4}})
+            
+        settings_data["layout"] = layout_list
+        
+        with open(settings_file, "w", encoding="utf-8") as f:
+            yaml.dump(settings_data, f)
+
+        # Write Homepage widgets.yaml
+        widgets_file = os.path.join(hp_path, "widgets.yaml")
+        if not os.path.exists(widgets_file) or os.getenv("TEST_MODE") != "true":
+            widgets_data = [
+                {"github": {"repository": "suuift/dockersetup"}}
+            ]
+            with open(widgets_file, "w", encoding="utf-8") as f:
+                yaml.dump(widgets_data, f)
 
         # Update the Homepage Compose with dynamic mappings
         hp_compose_path = os.path.join(stacks_dir, "maintenance", "docker-compose.yml")

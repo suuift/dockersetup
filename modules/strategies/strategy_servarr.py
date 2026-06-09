@@ -16,8 +16,8 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
             reg_entry = next((e for e in registry_list if e.key == app), None)
             if reg_entry:
                 write_step(f"Injecting Authentication for {app}...")
-                # Sonarr/Radarr/Lidarr/Readarr use v3, Mylar uses its own but we focus on core Arrs
-                api_version = "v3" if app != "prowlarr" else "v1"
+                # Sonarr/Radarr/Readarr use v3, Lidarr/Mylar/Prowlarr use v1
+                api_version = "v1" if app in ["prowlarr", "lidarr", "mylar"] else "v3"
                 api_url = f"http://localhost:{reg_entry.port}/api/{api_version}/config/host"
                 api_key = keys[app]
                 headers = {"X-Api-Key": api_key}
@@ -25,7 +25,7 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                 try:
                     current_config = rest_invoker(api_url, method="GET", headers=headers)
                     if current_config:
-                        current_config["authenticationMethod"] = "forms"
+                        current_config["authenticationMethod"] = "Forms"
                         current_config["username"] = http_user
                         current_config["password"] = http_pass
                         
@@ -48,8 +48,8 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                 if reg_entry:
                     payload = {
                         "name": app.upper(),
-                        "configContract": "ServarrSettings",
-                        "implementation": "Servarr",
+                        "configContract": f"{app.capitalize()}Settings",
+                        "implementation": app.capitalize(),
                         "fields": [
                             {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
                             {"name": "baseUrl", "value": f"http://{app}:{reg_entry.port}"},
@@ -66,7 +66,7 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
         # 3. Flaresolverr Proxy (Anti-Cloudflare for Indexers)
         if "flaresolverr" in selected:
             write_log("Adding FlareSolverr proxy to Prowlarr...")
-            proxy_url = f"http://localhost:9696/api/v1/proxies?apikey={p_key}"
+            proxy_url = f"http://localhost:9696/api/v1/indexerproxy?apikey={p_key}"
             proxy_payload = {
                 "name": "FlareSolverr",
                 "implementation": "FlareSolverr",

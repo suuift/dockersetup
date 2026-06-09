@@ -301,9 +301,15 @@ def main():
                     console.print("\nSetup Complete! Your Media Stack is running.", style="green")
 
                     # Copy setup.log to deploy folder
-                    log_file = get_log_path()
+                    log_file = resolve_path_slash(get_log_path())
+                    d_dir_slash = resolve_path_slash(d_dir)
                     if os.path.exists(log_file):
-                        shutil.copy(log_file, d_dir)
+                        try:
+                            shutil.copy(log_file, d_dir_slash)
+                        except shutil.SameFileError:
+                            pass
+                        except Exception as e:
+                            write_log(f"Failed to copy log file: {str(e)}", level="DEBUG")
 
                     console.print("\nNEXT STEPS:", style="yellow")
                     console.print("1. Access your Dashboard at http://localhost:3000")

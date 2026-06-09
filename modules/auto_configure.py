@@ -281,7 +281,8 @@ def auto_stitch_services() -> bool:
             try:
                 invoke_external_command(
                     "docker compose up -d --remove-orphans",
-                    description=f"Reloading {st}"
+                    description=f"Reloading {st}",
+                    cwd=st_path
                 )
             except Exception:
                 pass
