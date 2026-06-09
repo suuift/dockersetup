@@ -227,8 +227,31 @@ def main():
                             os.environ["SKIP_SELECTION"] = "true"
                             console.print("[UPGRADE] Regenerating stacks with latest templates...", style="cyan")
                         elif sub_choice == "3":
-                            confirm = questionary.confirm("Are you sure you want to wipe existing settings?", default=False).ask()
+                            console.print("\n[bold red][!] WARNING: A Full Reset will completely destroy all active containers,[/bold red]")
+                            console.print("[bold red]    remove docker volumes, and delete all configuration folders (appdata) under:[/bold red]")
+                            console.print(f"    [cyan]{d_dir}[/cyan]\n")
+                            confirm = questionary.confirm("Are you sure you want to permanently wipe all containers and configurations?", default=False).ask()
                             if confirm:
+                                # Stop containers and clean volumes first if stacks exist
+                                stacks_dir = resolve_path_slash(os.path.join(d_dir, "stacks"))
+                                if os.path.exists(stacks_dir):
+                                    for stack in os.listdir(stacks_dir):
+                                        full_path = resolve_path_slash(os.path.join(stacks_dir, stack))
+                                        if os.path.isdir(full_path):
+                                            compose_file = resolve_path_slash(os.path.join(full_path, "docker-compose.yml"))
+                                            if os.path.exists(compose_file):
+                                                write_step(f"Removing containers & volumes for stack: {stack}")
+                                                try:
+                                                    subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=full_path, capture_output=True)
+                                                except Exception as e:
+                                                    write_log(f"Failed to compose down stack {stack}: {str(e)}", level="WARN")
+
+                                # Remove directories
+                                write_step("Deleting configuration and stack directories")
+                                shutil.rmtree(stacks_dir, ignore_errors=True)
+                                shutil.rmtree(resolve_path_slash(os.path.join(d_dir, "appdata")), ignore_errors=True)
+                                
+                                # Remove metadata and environment files
                                 for file in [".metadata.json", ".env"]:
                                     file_p = resolve_path_slash(os.path.join(d_dir, file))
                                     if os.path.exists(file_p):
@@ -237,9 +260,13 @@ def main():
                                             console.print(f"[Backup] Saved backup to {file}.bak", style="grey50")
                                         except Exception:
                                             pass
-                                        os.remove(file_p)
-                                console.print("Settings wiped. Starting fresh install...", style="grey50")
+                                        try:
+                                            os.remove(file_p)
+                                        except Exception:
+                                            pass
+                                console.print("Settings and configurations wiped. Starting fresh install...", style="green")
                             else:
+                                console.print("[i] Reset cancelled. No containers or configurations were modified.", style="yellow")
                                 continue
                         elif sub_choice == "4" or not sub_choice:
                             continue
