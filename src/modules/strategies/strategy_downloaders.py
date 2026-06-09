@@ -9,10 +9,17 @@ def run_downloaders_strategy(selected, keys, registry_list, http_user, http_pass
     Handles authentication and connection stitching for Download Clients (qBit, SABnzbd).
     """
     results = []
+    
+    # Check if centralized identity provider / SSO is enabled
+    identity_providers = ["authelia", "authentik"]
+    sso_enabled = any(provider in selected for provider in identity_providers)
 
     # 1. SABnzbd Config Injection (Direct INI manipulation)
     if "sabnzbd" in selected and "sabnzbd" in keys:
-        if tier == "1":
+        if sso_enabled:
+            write_log("Skipping SABnzbd credentials injection (delegated to SSO gateway).", level="DEBUG")
+            results.append("SABnzbd configured unauthenticated (delegated to SSO gateway)")
+        elif tier == "1":
             write_log("Skipping SABnzbd credentials injection for minimal installation.", level="DEBUG")
             results.append("SABnzbd configured unauthenticated")
         else:
@@ -35,7 +42,10 @@ def run_downloaders_strategy(selected, keys, registry_list, http_user, http_pass
 
     # 2. qBittorrent API Handshake (Requires cookie-based session)
     if "qbittorrent" in selected or "qbittorrent-vpn" in selected:
-        if tier == "1":
+        if sso_enabled:
+            write_log("Skipping qBittorrent credentials injection (delegated to SSO gateway).", level="DEBUG")
+            results.append("qBittorrent configured with default credentials (delegated to SSO gateway)")
+        elif tier == "1":
             write_log("Skipping qBittorrent credentials injection for minimal installation.", level="DEBUG")
             results.append("qBittorrent configured with default credentials")
         else:

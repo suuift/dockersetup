@@ -10,6 +10,10 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
     # Apps that support the standard v3/v1 Servarr API for auth and linking
     arr_apps = ["sonarr", "radarr", "lidarr", "readarr", "mylar", "prowlarr"]
     
+    # Check if centralized identity provider / SSO is enabled
+    identity_providers = ["authelia", "authentik"]
+    sso_enabled = any(provider in selected for provider in identity_providers)
+    
     # 1. Authentication Injection (Forms-based auth with management credentials)
     for app in arr_apps:
         if app in selected and app in keys and app != "prowlarr":
@@ -25,8 +29,12 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                 try:
                     current_config = rest_invoker(api_url, method="GET", headers=headers)
                     if current_config:
-                        # Tier 1 = Minimal (no auth required), Tier 2 = Advanced (forms auth required)
-                        if tier == "1":
+                        # If SSO is enabled, force native auth to none. Otherwise follow standard tier rules.
+                        if sso_enabled:
+                            current_config["authenticationMethod"] = "none"
+                            current_config["username"] = ""
+                            current_config["password"] = ""
+                        elif tier == "1":
                             current_config["authenticationMethod"] = "none"
                             current_config["username"] = ""
                             current_config["password"] = ""
@@ -36,7 +44,10 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                             current_config["password"] = http_pass
                         
                         rest_invoker(api_url, method="PUT", json_payload=current_config, headers=headers)
-                        auth_desc = "unsecured (no auth required)" if tier == "1" else "secured with credentials"
+                        if sso_enabled:
+                            auth_desc = "unsecured (delegated to SSO gateway)"
+                        else:
+                            auth_desc = "unsecured (no auth required)" if tier == "1" else "secured with credentials"
                         results.append(f"Configured {app} as {auth_desc}")
                 except Exception as e:
                     write_log(f"Failed to inject auth for {app}: {str(e)}", level="WARN")

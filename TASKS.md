@@ -45,3 +45,8 @@ All tasks for the non-destructive Python migration are successfully completed.
 - [x] **Fix Concurrent Pull Failures and Error Handling in `deploy_start.py`**:
   - Evaluate why concurrent image pulls fail with exit status 2 on certain Docker/Podman environments (e.g., Podman compose compatibility).
   - Implement robust error handling so that if image pulling fails, the script either recovers, retries, or halts deployment rather than silently continuing and trying to start stacks with missing/stale images.
+
+- [ ] **Automated NPM Forward Auth Integration**:
+  - Research direct database seeding or configuration injection for Nginx Proxy Manager hosts.
+  - Implement automatic forward-authentication routing to Authelia/Authentik when identity providers are present in the stack.
+
