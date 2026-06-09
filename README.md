@@ -57,13 +57,15 @@ Follow the interactive menus to select your installation tier, configure credent
 
 *   **Cross-Platform Portability:** Runs seamlessly on both Windows and Linux environments.
 *   **Stateless Builder Architecture:** The project root remains clean. All configurations, state files, and deployment logic are written directly to your chosen target directory.
-*   **Self-Healing Updates:** Every time you launch the setup script, it checks for updates from the repository, with support for seamless binary-renaming swaps.
+*   **Self-Healing Updates:** Every time you launch the setup script, it checks for updates from the repository. Supports seamless, rename-and-replace binary updates with built-in SSL validation protection using `certifi`.
 *   **Intelligent Migration:** Detects existing deployments and offers one-click Template Upgrades to apply the latest security and performance optimizations to your stacks without touching your data.
+*   **Permissions Hardening:** Automatically detects host users via `SUDO_UID` and `SUDO_GID` on Linux. Corrects and secures directory ownership recursively to prevent container write errors—specifically optimized for immutable Linux distributions (Bazzite, SteamOS, Fedora Silverblue).
 *   **Multi-Stack Deployment:** Automatically splits services into logical groups (Core, Media-PVR, Downloaders, etc.) for isolation and management via Dockge.
 *   **Zero-Touch Authentication:** Automatically secures 11+ application web interfaces (Sonarr, Radarr, qBittorrent, etc.) using your custom management credentials.
-*   **Rich Dashboards:** Generates a professional Homepage dashboard pre-configured with live data widgets for active downloads, library statistics, and service health.
+*   **Rich Dashboards:** Generates a professional Homepage dashboard pre-configured with direct repository bookmarks, docker socket mapping, and live data widgets for active downloads, library statistics, and service status.
 *   **Advanced Stitching:** Automatically links services (e.g., Prowlarr to PVRs, FlareSolverr to Prowlarr, Seerr to Radarr) during installation.
 *   **Concurrent Image Downloads:** Employs a thread pool to download service images concurrently, significantly speeding up deployment.
+*   **CI/CD Release Automation:** Incorporates automated semantic versioning, changelog updates, and multi-OS PyInstaller compilation triggers using GitHub Actions.
 
 ---
 

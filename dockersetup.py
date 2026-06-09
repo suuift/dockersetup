@@ -8,7 +8,7 @@ import questionary
 from rich.console import Console
 
 # Bootstrap utilities
-from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
+from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash, get_resource_path
 from src.utils.logger import write_log, write_step, set_log_path, enable_debug_logging, get_log_path, invoke_external_command
 from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
@@ -202,7 +202,7 @@ def main():
                     
                     # Check for template updates
                     needs_upgrade = False
-                    template_path = resolve_path_slash(os.path.join(project_root, "templates.yml"))
+                    template_path = get_resource_path("templates.yml")
                     
                     sha256 = hashlib.sha256()
                     with open(template_path, "rb") as f:
@@ -313,7 +313,7 @@ def main():
                     # Health check summary
                     if metadata.get("selected_services") and os.getenv("TEST_MODE") != "true":
                         console.print("\nSERVICE HEALTH STATUS:", style="yellow")
-                        services_path = resolve_path_slash(os.path.join(project_root, "services.yml"))
+                        services_path = get_resource_path("services.yml")
                         master_registry = get_yaml_content(services_path)
                         registry_list = get_registry_list(master_registry)
 
