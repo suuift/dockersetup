@@ -20,7 +20,17 @@ def invoke_self_update(project_root: str) -> bool:
             if install:
                 if sys.platform == "win32" and shutil.which("winget"):
                     console.print("Installing Git via winget...", style="grey50")
-                    ret = subprocess.run("winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements", shell=True, env=get_clean_env())
+                    ret = subprocess.run(
+                        [
+                            "winget", "install", 
+                            "--id", "Git.Git", 
+                            "-e", 
+                            "--source", "winget", 
+                            "--accept-package-agreements", 
+                            "--accept-source-agreements"
+                        ],
+                        env=get_clean_env()
+                    )
                     if ret.returncode != 0:
                         write_log("Winget install failed. Please install Git manually from https://git-scm.com/", level="ERROR")
                         return False
