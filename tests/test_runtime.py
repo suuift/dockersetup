@@ -283,4 +283,78 @@ def test_uninstall_workflow(mock_confirm, mock_run):
     assert not os.path.exists(os.path.join(TEST_DEPLOY_DIR, "stacks"))
     assert not os.path.exists(os.path.join(TEST_DEPLOY_DIR, ".metadata.json"))
 
+def test_ast_and_syntax_validation():
+    """
+    Ensure all Python source files in the project are syntactically valid by parsing them with built-in ast.
+    """
+    import ast
+    project_root = TEST_PROJECT_ROOT
+    python_files = []
+    
+    # Traverse directories to find python files
+    for root, _, files in os.walk(project_root):
+        if ".venv" in root or ".pytest_cache" in root or "build" in root or "dist" in root:
+            continue
+        for file in files:
+            if file.endswith(".py"):
+                python_files.append(os.path.join(root, file))
+                
+    assert len(python_files) > 0, "No Python source files found to validate."
+    
+    for py_file in python_files:
+        try:
+            with open(py_file, "r", encoding="utf-8") as f:
+                source = f.read()
+            ast.parse(source, filename=py_file)
+        except SyntaxError as e:
+            pytest.fail(f"Syntax error in {py_file}: {e}")
+
+def test_yaml_integrity_and_schema():
+    """
+    Ensure templates.yml and services.yml are well-formed and meet basic structure rules.
+    """
+    services_path = os.path.join(TEST_PROJECT_ROOT, "resources", "services.yml")
+    template_path = os.path.join(TEST_PROJECT_ROOT, "resources", "templates.yml")
+    
+    # Verify both exist
+    assert os.path.exists(services_path), "services.yml is missing"
+    assert os.path.exists(template_path), "templates.yml is missing"
+    
+    # Check services.yml structure
+    services_data = get_yaml_content(services_path)
+    assert isinstance(services_data, dict), "services.yml must parse to a dict"
+    
+    # Must have categories/tiers
+    required_keys = ["MINIMAL", "MANAGEMENT", "NETWORKING", "DATABASE", "REMOTE", "TOOLS", "GAMES", "STACK_GROUPS"]
+    for rk in required_keys:
+        assert rk in services_data, f"Required category/section '{rk}' missing in services.yml"
+        
+    # Check templates.yml structure
+    templates_data = get_template_blocks(template_path)
+    assert isinstance(templates_data, dict), "templates.yml must parse to a dictionary"
+    assert "header" in templates_data, "templates.yml must have a 'header' block defined"
+    
+    # Verify that all selected services in services.yml actually have templates in templates.yml
+    registry_list = get_registry_list(services_data)
+    for svc in registry_list:
+        if svc.key != "divider":
+            assert svc.key in templates_data, f"Service '{svc.key}' is defined in services.yml but has no template in templates.yml"
+
+def test_strict_path_normalization_invariant():
+    """
+    Verify path normalization ensures forward slashes exclusively on Windows or other OS.
+    """
+    # Windows paths with backslashes
+    assert resolve_path_slash("C:\\docker\\stacks") == "C:/docker/stacks"
+    assert resolve_path_slash("appdata\\sonarr\\config") == "appdata/sonarr/config"
+    assert resolve_path_slash("\\\\network-share\\share") == "//network-share/share"
+    # Empty and invalid cases
+    assert resolve_path_slash("") == ""
+    assert resolve_path_slash(None) is None
+    
+    # Windows drives
+    assert resolve_path_slash("D:") == "D:/"
+    assert resolve_path_slash("z:") == "z:/"
+
+
 
