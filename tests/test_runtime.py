@@ -154,6 +154,14 @@ def test_compose_build_integration():
     # HTTP_PASSWORD should be filtered out from PVR stack as it's not used in its compose
     assert "HTTP_PASSWORD" not in env_content
 
+    # 5. Verify Homepage configuration files
+    hp_config_dir = os.path.join(TEST_DEPLOY_DIR, "appdata", "homepage", "config")
+    assert os.path.exists(os.path.join(hp_config_dir, "bookmarks.yaml"))
+    assert os.path.exists(os.path.join(hp_config_dir, "docker.yaml"))
+    assert os.path.exists(os.path.join(hp_config_dir, "widgets.yaml"))
+    assert os.path.exists(os.path.join(hp_config_dir, "settings.yaml"))
+    assert os.path.exists(os.path.join(hp_config_dir, "services.yaml"))
+
 @patch("src.modules.auto_configure.wait_for_service")
 @patch("requests.Session.request")
 def test_auto_stitch_integration(mock_request, mock_wait):

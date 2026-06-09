@@ -360,6 +360,35 @@ def build_compose_stacks() -> bool:
             with open(widgets_file, "w", encoding="utf-8") as f:
                 yaml.dump(widgets_data, f)
 
+        # Write Homepage bookmarks.yaml
+        bookmarks_file = os.path.join(hp_path, "bookmarks.yaml")
+        if not os.path.exists(bookmarks_file) or os.getenv("TEST_MODE") != "true":
+            bookmarks_data = [
+                {
+                    "Developer": [
+                        {
+                            "Github": {
+                                "abbr": "GH",
+                                "href": "https://github.com/suuift/dockersetup"
+                            }
+                        }
+                    ]
+                }
+            ]
+            with open(bookmarks_file, "w", encoding="utf-8") as f:
+                yaml.dump(bookmarks_data, f)
+
+        # Write Homepage docker.yaml (Local Socket connection)
+        docker_file = os.path.join(hp_path, "docker.yaml")
+        if not os.path.exists(docker_file) or os.getenv("TEST_MODE") != "true":
+            docker_data = {
+                "my-docker": {
+                    "socket": "/var/run/docker.sock"
+                }
+            }
+            with open(docker_file, "w", encoding="utf-8") as f:
+                yaml.dump(docker_data, f)
+
         # Update the Homepage Compose with dynamic mappings
         hp_compose_path = os.path.join(stacks_dir, "maintenance", "docker-compose.yml")
         if os.path.exists(hp_compose_path):
