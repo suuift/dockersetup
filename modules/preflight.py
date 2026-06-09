@@ -39,7 +39,7 @@ def run_system_preflight() -> bool:
     else:
         console.print("[OK] Privilege checks passed", style="green")
 
-    # 3. Docker Availability
+    # 3. Docker Availability (Stage 1: Installed)
     docker_cmd = shutil.which("docker")
     if not docker_cmd:
         raise FileNotFoundError("Docker not found. Please install Docker and ensure it is in your system PATH.")
@@ -53,9 +53,93 @@ def run_system_preflight() -> bool:
         ).strip()
         console.print(f"[OK] {docker_version} detected", style="green")
     except Exception:
-        raise RuntimeError("Docker daemon is not running or accessible. Please start Docker.")
+        raise RuntimeError("Docker binary exists but '--version' failed. Your Docker installation may be corrupted.")
 
-    # 4. Docker Compose V2 Checks
+    # 4. Docker Daemon Status (Stage 2: Running)
+    daemon_running = False
+    try:
+        # docker info requires the daemon to be responsive
+        subprocess.run(
+            ["docker", "info"],
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=get_clean_env()
+        )
+        daemon_running = True
+        console.print("[OK] Docker daemon is running", style="green")
+    except subprocess.CalledProcessError:
+        daemon_running = False
+
+    # Auto-start logic if installed but not running
+    if not daemon_running:
+        if os.getenv("TEST_MODE") == "true" or os.getenv("DS_HEADLESS") == "true":
+            raise RuntimeError("Docker daemon is offline. (Auto-start disabled in test/headless mode).")
+
+        console.print("[i] Docker daemon is offline. Attempting to start it...", style="yellow")
+        
+        start_attempted = False
+        if platform.system() == "Windows":
+            import winreg
+            try:
+                # Query registry for Docker Desktop path
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Docker Inc.\Docker\1.0")
+                app_path, _ = winreg.QueryValueEx(key, "AppPath")
+                winreg.CloseKey(key)
+                
+                if os.path.exists(app_path):
+                    # Launch in background
+                    subprocess.Popen([app_path], creationflags=subprocess.CREATE_NO_WINDOW)
+                    start_attempted = True
+            except Exception as e:
+                write_log(f"Could not find Docker Desktop in registry: {e}", level="DEBUG")
+        else:
+            # Linux fallbacks
+            try:
+                if "/snap/bin/docker" in docker_cmd:
+                    subprocess.run(["snap", "start", "docker"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                else:
+                    # Try systemd first, then service
+                    try:
+                        subprocess.run(["systemctl", "start", "docker"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    except subprocess.CalledProcessError:
+                        subprocess.run(["service", "docker", "start"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                start_attempted = True
+            except Exception as e:
+                write_log(f"Failed to auto-start Linux Docker daemon: {e}", level="DEBUG")
+
+        if not start_attempted:
+            raise RuntimeError("Docker is not running and could not be started automatically. Please start Docker manually.")
+
+        # Polling loop (max 60 seconds)
+        import time
+        console.print("Waiting for Docker daemon to initialize... ", end="", style="white")
+        sys.stdout.flush()
+        
+        timeout = 60
+        start_time = time.time()
+        while (time.time() - start_time) < timeout:
+            try:
+                subprocess.run(
+                    ["docker", "info"],
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=get_clean_env()
+                )
+                console.print("[OK]", style="green")
+                daemon_running = True
+                break
+            except subprocess.CalledProcessError:
+                console.print(".", end="")
+                sys.stdout.flush()
+                time.sleep(3)
+
+        if not daemon_running:
+            console.print("[TIMEOUT]", style="bold red")
+            raise RuntimeError("Docker daemon took too long to start. Please check Docker for errors.")
+
+    # 5. Docker Compose V2 Checks
     try:
         compose_proc = subprocess.run(
             ["docker", "compose", "version"],
