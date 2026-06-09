@@ -280,8 +280,10 @@ def main():
                 try:
                     # Run linear modules
                     run_system_preflight()
-                    run_deploy_preflight()
                     select_services()
+                    if not run_deploy_preflight():
+                        # If user declined due to port conflicts
+                        continue
                     configure_environment()
                     setup_directories()
                     setup_networks()
