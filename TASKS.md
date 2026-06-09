@@ -28,7 +28,15 @@ All tasks for the non-destructive Python migration are successfully completed.
   - `dockersetup.py` completed with all menus, reconfigure workflows, updates, and token config utilities.
 - [x] **Testing & Validation**
   - Comprehensive unit test suite implemented at `tests/test_runtime.py` covering paths, yaml loader, metadata state, env configuration, and directories.
+  - Integration tests added for `compose_build` and `auto_configure` with network/process mocking.
   - All tests verified and passing inside the virtual environment.
+
+## 🛡️ Security & Architecture Hardening (June 2026)
+- [x] **Secret Isolation**: Moved hardcoded development tokens to project-level `.env`.
+- [x] **Smart SSL Verification**: Re-enabled SSL verification for public URLs while allowing bypassed local traffic.
+- [x] **Architectural Refactor**: Decomposed `auto_configure.py` into focused strategy modules (`modules/strategies/`).
+- [x] **Dependency Hardening**: Pinned all dependencies to exact versions in `pyproject.toml`.
+- [x] **YAML Integrity**: Added protection headers to `templates.yml` to prevent parser breakage.
 
 ## 📝 Deferred / Complex Items
 *No functionality was deferred. The Python migration successfully preserves 100% of the original features while upgrading performance via concurrent pulling and premium terminal menus.*

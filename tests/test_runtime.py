@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import pytest
+from unittest.mock import MagicMock, patch
 
 # Ensure projects directory is in path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -110,4 +111,89 @@ def test_timezone_detection():
     fallback_tz = select_timezone_interactive("None")
     assert fallback_tz is not None
     assert fallback_tz != "None"
+
+def test_compose_build_integration():
+    from modules.compose_build import build_compose_stacks
+    
+    # 1. Setup metadata
+    set_metadata({
+        "selected_services": ["sonarr", "radarr", "homepage"],
+        "tier": "1"
+    })
+    
+    # 2. Setup master .env
+    env_file = os.path.join(TEST_DEPLOY_DIR, ".env")
+    save_env_vars({
+        "PUID": "1000",
+        "PGID": "1000",
+        "TZ": "UTC",
+        "DOCKERDIR": TEST_DEPLOY_DIR,
+        "DRIVEPOOL": os.path.join(TEST_DEPLOY_DIR, "media"),
+        "USERDIR": TEST_DEPLOY_DIR,
+        "HTTP_USERNAME": "admin",
+        "HTTP_PASSWORD": "password"
+    }, file_path=env_file)
+    
+    # 3. Run build
+    assert build_compose_stacks() is True
+    
+    # 4. Verify output
+    stack_dir = os.path.join(TEST_DEPLOY_DIR, "stacks", "media-pvr")
+    assert os.path.exists(stack_dir)
+    assert os.path.exists(os.path.join(stack_dir, "docker-compose.yml"))
+    assert os.path.exists(os.path.join(stack_dir, ".env"))
+    
+    with open(os.path.join(stack_dir, "docker-compose.yml"), "r") as f:
+        content = f.read()
+    assert "sonarr" in content
+    assert "radarr" in content
+    
+    with open(os.path.join(stack_dir, ".env"), "r") as f:
+        env_content = f.read()
+    assert "PUID=1000" in env_content
+    # HTTP_PASSWORD should be filtered out from PVR stack as it's not used in its compose
+    assert "HTTP_PASSWORD" not in env_content
+
+@patch("modules.auto_configure.wait_for_service")
+@patch("requests.Session.request")
+def test_auto_stitch_integration(mock_request, mock_wait):
+    from modules.auto_configure import auto_stitch_services
+    
+    mock_wait.return_value = True
+    
+    # Mock API responses
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "ok"}
+    mock_request.return_value = mock_response
+    
+    # Setup files
+    set_metadata({"selected_services": ["sonarr", "prowlarr"]})
+    deploy_dir = TEST_DEPLOY_DIR
+    
+    # Mock sonarr config
+    sonarr_cfg_path = os.path.join(deploy_dir, "appdata", "sonarr", "config", "config.xml")
+    os.makedirs(os.path.dirname(sonarr_cfg_path), exist_ok=True)
+    with open(sonarr_cfg_path, "w") as f:
+        f.write("<Config><ApiKey>testkey</ApiKey></Config>")
+        
+    # Mock prowlarr config
+    prowl_cfg_path = os.path.join(deploy_dir, "appdata", "prowlarr", "config", "config.xml")
+    os.makedirs(os.path.dirname(prowl_cfg_path), exist_ok=True)
+    with open(prowl_cfg_path, "w") as f:
+        f.write("<Config><ApiKey>prowlkey</ApiKey></Config>")
+        
+    env_file = os.path.join(deploy_dir, ".env")
+    save_env_vars({"HTTP_PASSWORD": "testpassword"}, file_path=env_file)
+    
+    # Run stitching
+    assert auto_stitch_services() is True
+    
+    # Verify mock calls (should have attempted to auth sonarr and link prowlarr)
+    assert mock_request.called
+    
+    # Verify metadata update
+    meta = get_metadata()
+    assert "auto_config_results" in meta
+    assert len(meta["auto_config_results"]) > 0
 

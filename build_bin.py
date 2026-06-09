@@ -13,8 +13,13 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
         "--clean",
         "--add-data", f"services.yml{data_sep}.",
         "--add-data", f"templates.yml{data_sep}.",
-        "dockersetup.py"
     ]
+    
+    # Enable automatic Administrator elevation for Windows builds
+    if platform.system() == "Windows":
+        cmd.append("--uac-admin")
+        
+    cmd.append("dockersetup.py")
     
     print(f"\n--- Running Local Build for {platform.system()} ---")
     print(" ".join(cmd))

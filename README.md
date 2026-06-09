@@ -7,15 +7,15 @@ A professional-grade, cross-platform Python automation suite for deploying a com
 The fastest way to deploy DockerSetup is using the pre-compiled standalone binaries.
 
 ### Windows (PowerShell)
-Run this command in an Administrative PowerShell session to download and start the setup wizard immediately:
+Download and run the executable. Note that running this command will trigger a User Account Control (UAC) prompt to grant the installer necessary Administrator permissions.
 ```powershell
-powershell -Command "Invoke-WebRequest -Uri 'https://github.com/suuift/dockersetup/releases/download/v1.5.6/dockersetup.exe' -OutFile 'dockersetup.exe'; .\dockersetup.exe"
+Invoke-WebRequest -Uri "https://github.com/suuift/dockersetup/releases/latest/download/dockersetup.exe" -OutFile "dockersetup.exe"; .\dockersetup.exe
 ```
 
 ### Linux (Shell)
-Run this command in your terminal:
+Run this command in your terminal. You may be prompted for your `sudo` password to allow the installer to configure Docker and filesystem permissions.
 ```bash
-curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/download/v1.5.6/dockersetup && chmod +x dockersetup && ./dockersetup
+curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/latest/download/dockersetup && chmod +x dockersetup && sudo ./dockersetup
 ```
 
 ---

@@ -15,6 +15,37 @@ from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
 from utils.logger import write_log, console
 from utils.state import get_metadata, save_env_vars
 
+def check_keyboard_locks():
+    """
+    Checks the system state for Caps Lock and Num Lock to warn the user before typing passwords.
+    """
+    caps_on = False
+    num_off = False
+    
+    if platform.system() == "Windows":
+        try:
+            import ctypes
+            VK_CAPITAL = 0x14
+            VK_NUMLOCK = 0x90
+            caps_on = ctypes.windll.user32.GetKeyState(VK_CAPITAL) & 1 == 1
+            num_off = ctypes.windll.user32.GetKeyState(VK_NUMLOCK) & 1 == 0
+        except Exception:
+            pass
+    elif platform.system() == "Linux":
+        try:
+            # Best-effort X11 check (fails gracefully if headless/Wayland)
+            res = subprocess.run(["xset", "q"], capture_output=True, text=True, timeout=1)
+            if res.returncode == 0:
+                caps_on = "Caps Lock:   on" in res.stdout
+                num_off = "Num Lock:    off" in res.stdout
+        except Exception:
+            pass
+            
+    if caps_on:
+        console.print("[!] WARNING: Caps Lock is ON.", style="bold yellow")
+    if num_off:
+        console.print("[i] Notice: Num Lock is OFF.", style="grey50")
+
 def new_random_password(length: int = 24) -> str:
     # Alphanumeric plus safe symbols to prevent escaping breakages in templates (Edge Case 2)
     chars = string.ascii_letters + string.digits + "!@#_-"
@@ -259,10 +290,33 @@ def configure_environment() -> bool:
     if os.getenv("DS_HEADLESS") == "true":
         http_pass = new_random_password()
     else:
-        http_pass = questionary.password("Management Password (leave blank to generate random):").ask()
-        if not http_pass:
-            http_pass = new_random_password()
-            write_log("[!] Using generated password for this session.", level="WARN")
+        while True:
+            check_keyboard_locks()
+            http_pass = questionary.password("Management Password (leave blank to generate random):").ask()
+            
+            # Handle Ctrl+C abort
+            if http_pass is None:
+                write_log("User aborted setup.", level="WARN")
+                sys.exit(1)
+                
+            # Handle blank input (generate random)
+            if not http_pass:
+                http_pass = new_random_password()
+                write_log("[!] Using generated password for this session.", level="WARN")
+                break
+                
+            # Double-entry confirmation for manually entered passwords
+            check_keyboard_locks()
+            confirm_pass = questionary.password("Confirm Management Password:").ask()
+            
+            if confirm_pass is None:
+                write_log("User aborted setup.", level="WARN")
+                sys.exit(1)
+                
+            if http_pass == confirm_pass:
+                break
+            else:
+                console.print("[!] The passwords don't match, please try again.", style="bold red")
 
     console.print("\n--- Path Configuration ---", style="yellow")
     docker_dir = deploy_dir
