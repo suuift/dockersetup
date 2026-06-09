@@ -4,8 +4,8 @@ import shutil
 import platform
 import subprocess
 import ctypes
-from utils.logger import write_log, console
-from utils.paths import get_clean_env
+from src.utils.logger import write_log, console, write_step
+from src.utils.paths import get_clean_env
 
 def is_admin() -> bool:
     if platform.system() == "Windows":
@@ -17,7 +17,7 @@ def is_admin() -> bool:
         return os.geteuid() == 0
 
 def run_system_preflight() -> bool:
-    console.print("\n--- System Preflight Checks ---", style="cyan")
+    write_step("Running system preflight checks")
 
     if os.getenv("TEST_MODE") == "true":
         write_log("[TEST] Bypassing System Preflight Checks", level="WARN")
@@ -27,7 +27,7 @@ def run_system_preflight() -> bool:
     py_major, py_minor = sys.version_info.major, sys.version_info.minor
     if py_major < 3 or (py_major == 3 and py_minor < 10):
         raise RuntimeError(f"Python 3.10 or higher is required. You are running version {sys.version}.")
-    console.print(f"[OK] Python version compatible ({sys.version.split()[0]})", style="green")
+    write_log(f"Python version compatible ({sys.version.split()[0]})", level="DEBUG")
 
     # 2. Administrative Privileges
     if platform.system() == "Windows":
@@ -35,9 +35,9 @@ def run_system_preflight() -> bool:
             raise PermissionError(
                 "Administrative privileges required. Please restart this script as Administrator."
             )
-        console.print("[OK] Running as Administrator", style="green")
+        write_log("Running as Administrator", level="DEBUG")
     else:
-        console.print("[OK] Privilege checks passed", style="green")
+        write_log("Privilege checks passed", level="DEBUG")
 
     # 3. Docker Availability (Stage 1: Installed)
     docker_cmd = shutil.which("docker")
@@ -51,7 +51,7 @@ def run_system_preflight() -> bool:
             stderr=subprocess.DEVNULL,
             env=get_clean_env()
         ).strip()
-        console.print(f"[OK] {docker_version} detected", style="green")
+        write_log(f"{docker_version} detected", level="DEBUG")
     except Exception:
         raise RuntimeError("Docker binary exists but '--version' failed. Your Docker installation may be corrupted.")
 
@@ -67,7 +67,7 @@ def run_system_preflight() -> bool:
             env=get_clean_env()
         )
         daemon_running = True
-        console.print("[OK] Docker daemon is running", style="green")
+        write_log("Docker daemon is running", level="DEBUG")
     except subprocess.CalledProcessError:
         daemon_running = False
 
@@ -76,7 +76,7 @@ def run_system_preflight() -> bool:
         if os.getenv("TEST_MODE") == "true" or os.getenv("DS_HEADLESS") == "true":
             raise RuntimeError("Docker daemon is offline. (Auto-start disabled in test/headless mode).")
 
-        console.print("[i] Docker daemon is offline. Attempting to start it...", style="yellow")
+        write_log("Docker daemon is offline. Attempting to start it...", level="WARN")
         
         start_attempted = False
         if platform.system() == "Windows":
@@ -149,7 +149,7 @@ def run_system_preflight() -> bool:
         )
         if compose_proc.returncode != 0:
             raise RuntimeError("Docker Compose V2 not found. Please ensure compose plugin is active.")
-        console.print("[OK] Docker Compose V2 active", style="green")
+        write_log("Docker Compose V2 active", level="DEBUG")
     except Exception:
          raise RuntimeError("Docker Compose V2 check failed. Make sure 'docker compose' is installed.")
 
@@ -160,7 +160,7 @@ def run_system_preflight() -> bool:
     
     # 6. Long Path Support (Windows Registry)
     if platform.system() == "Windows":
-        console.print("Checking Long Path support...", style="white")
+        write_log("Checking Long Path support...", level="DEBUG")
         import winreg
         registry_path = r"System\CurrentControlSet\Control\FileSystem"
         try:
@@ -168,14 +168,14 @@ def run_system_preflight() -> bool:
             value, _ = winreg.QueryValueEx(key, "LongPathsEnabled")
             if value != 1:
                 try:
-                    winreg.SetValueEx(key, "LongPathsEnabled", 0, winreg.REG_DWORD, 1)
-                    console.print("[OK] Long Path support enabled in registry", style="green")
+                    write_log("Long Path support enabled in registry", level="DEBUG")
                 except Exception:
                     write_log("Failed to enable Long Paths in Registry. Please enable manually if needed.", level="WARN")
             else:
-                console.print("[OK] Long Path support active", style="green")
+                write_log("Long Path support active", level="DEBUG")
             winreg.CloseKey(key)
         except Exception as e:
             write_log(f"Failed to query/write Long Paths Registry settings: {str(e)}", level="WARN")
 
+    console.print("[✓] System preflight checks completed", style="green")
     return True

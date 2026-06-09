@@ -2,8 +2,8 @@ import os
 import json
 import re
 from typing import Any, Dict
-from utils.paths import get_deploy_dir, resolve_path_slash
-from utils.logger import write_log
+from src.utils.paths import get_deploy_dir, resolve_path_slash
+from src.utils.logger import write_log
 
 # Caching variables
 _metadata_cache = None

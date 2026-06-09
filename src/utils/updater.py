@@ -4,8 +4,8 @@ import subprocess
 import shutil
 import urllib.request
 import questionary
-from utils.paths import get_project_root, get_clean_env
-from utils.logger import write_log, console
+from src.utils.paths import get_project_root, get_clean_env
+from src.utils.logger import write_log, console
 
 def invoke_self_update(project_root: str) -> bool:
     # Check if running in a Git repository (Source Mode)

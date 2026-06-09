@@ -1,10 +1,10 @@
 import os
 import shutil
-from utils.paths import get_project_root, get_deploy_dir
-from utils.logger import write_log, console
+from src.utils.paths import get_project_root, get_deploy_dir
+from src.utils.logger import write_log, console, write_step
 
 def run_deploy_preflight() -> bool:
-    console.print("\n--- Deployment Preflight Checks ---", style="cyan")
+    write_step("Running deployment preflight checks")
 
     if os.getenv("TEST_MODE") == "true":
         write_log("[TEST] Bypassing Deployment Preflight Checks", level="WARN")
@@ -24,9 +24,9 @@ def run_deploy_preflight() -> bool:
         if free_gb < 10.0:
             write_log(f"Low disk space on target directory ({free_gb} GB free). Recommended: 10GB+", level="WARN")
         else:
-            console.print(f"[OK] Sufficient disk space ({free_gb} GB free)", style="green")
+            write_log(f"Sufficient disk space ({free_gb} GB free)", level="DEBUG")
     except Exception as e:
         write_log(f"Failed to check disk space: {str(e)}", level="WARN")
 
-    console.print("Deployment preflight checks passed.", style="green")
+    console.print("[✓] Deployment preflight checks completed", style="green")
     return True

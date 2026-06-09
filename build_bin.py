@@ -11,8 +11,8 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
     cmd = pyinstaller_cmd + [
         "--onefile",
         "--clean",
-        "--add-data", f"services.yml{data_sep}.",
-        "--add-data", f"templates.yml{data_sep}.",
+        "--add-data", f"resources/services.yml{data_sep}resources",
+        "--add-data", f"resources/templates.yml{data_sep}resources",
     ]
     
     # Enable automatic Administrator elevation for Windows builds
@@ -64,7 +64,7 @@ def run_docker_linux_build(project_root: str):
         "sh", "-c", (
             "apt-get update && apt-get install -y binutils && "
             "pip install --no-cache-dir pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal && "
-            "pyinstaller --onefile --clean --add-data 'services.yml:.' --add-data 'templates.yml:.' dockersetup.py"
+            "pyinstaller --onefile --clean --add-data 'resources/services.yml:resources' --add-data 'resources/templates.yml:resources' dockersetup.py"
         )
     ]
     

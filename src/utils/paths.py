@@ -35,6 +35,14 @@ def get_deploy_dir() -> str:
         return resolve_path_slash(os.getenv("DEPLOY_DIR"))
     return get_project_root()
 
+def get_resource_path(filename: str) -> str:
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        bundled_path = os.path.join(sys._MEIPASS, "resources", filename)
+        if os.path.exists(bundled_path):
+            return resolve_path_slash(bundled_path)
+        return resolve_path_slash(os.path.join(sys._MEIPASS, filename))
+    return resolve_path_slash(os.path.join(get_project_root(), "resources", filename))
+
 def get_clean_env() -> dict:
     env = os.environ.copy()
     # PyInstaller overrides library paths, polluting subprocesses. Restore original if present.

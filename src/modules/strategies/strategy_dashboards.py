@@ -1,4 +1,4 @@
-from utils.logger import write_log, write_step
+from src.utils.logger import write_log, write_step
 
 def run_dashboards_strategy(selected, keys, registry_list, rest_invoker):
     """

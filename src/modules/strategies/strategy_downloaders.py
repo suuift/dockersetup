@@ -2,7 +2,7 @@ import os
 import re
 import json
 import requests
-from utils.logger import write_log, write_step
+from src.utils.logger import write_log, write_step
 
 def run_downloaders_strategy(selected, keys, registry_list, http_user, http_pass, deploy_dir, rest_invoker):
     """

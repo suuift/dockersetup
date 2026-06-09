@@ -4,7 +4,7 @@ import shutil
 import subprocess
 import questionary
 from rich.console import Console
-from utils.paths import get_clean_env
+from src.utils.paths import get_clean_env
 
 console = Console()
 

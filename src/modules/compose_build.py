@@ -1,10 +1,10 @@
 import os
 import re
 import hashlib
-from utils.paths import get_project_root, get_deploy_dir
-from utils.logger import write_log, console, write_step
-from utils.state import get_metadata, set_metadata
-from utils.yaml_parser import get_yaml_content, get_template_blocks, get_registry_list
+from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
+from src.utils.logger import write_log, console, write_step
+from src.utils.state import get_metadata, set_metadata
+from src.utils.yaml_parser import get_yaml_content, get_template_blocks, get_registry_list
 
 def indent_service_block(block: str) -> str:
     """
@@ -13,13 +13,13 @@ def indent_service_block(block: str) -> str:
     return "\n".join("  " + line if line.strip() else "" for line in block.splitlines())
 
 def build_compose_stacks() -> bool:
-    write_log("Building multi-stack deployment for Dockge...")
+    write_step("Generating Docker Compose stack configurations")
 
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
     env_path = os.path.join(deploy_dir, ".env")
-    template_path = os.path.join(project_root, "templates.yml")
-    services_path = os.path.join(project_root, "services.yml")
+    template_path = get_resource_path("templates.yml")
+    services_path = get_resource_path("services.yml")
 
     # Load Master Registry
     master_registry = get_yaml_content(services_path)
@@ -375,5 +375,6 @@ def build_compose_stacks() -> bool:
     metadata["generated_stacks"] = generated_stacks
     set_metadata(metadata)
 
-    write_log(f"Multi-stack build complete at {stacks_dir}")
+    write_log(f"Multi-stack build complete at {stacks_dir}", level="DEBUG")
+    console.print("[✓] Docker Compose stack configurations generated", style="green")
     return True

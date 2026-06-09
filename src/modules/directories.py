@@ -1,12 +1,12 @@
 import os
 import platform
 import re
-from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
-from utils.logger import write_log, console
-from utils.state import get_metadata
+from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
+from src.utils.logger import write_log, console, write_step
+from src.utils.state import get_metadata
 
 def setup_directories() -> bool:
-    console.print("\n--- Setting up directories ---", style="cyan")
+    write_step("Setting up folder directory structure")
 
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
@@ -54,7 +54,7 @@ def setup_directories() -> bool:
         if not os.path.exists(path):
             try:
                 os.makedirs(path, exist_ok=True)
-                console.print(f"Created: {path}", style="grey50")
+                write_log(f"Created directory: {path}", level="DEBUG")
             except Exception as e:
                 raise PermissionError(f"Failed to create directory: {path}. Ensure you have write permissions. Error: {str(e)}")
 
@@ -63,7 +63,7 @@ def setup_directories() -> bool:
     if not os.path.exists(stacks_dir):
         try:
             os.makedirs(stacks_dir, exist_ok=True)
-            console.print(f"Created: {stacks_dir}", style="grey50")
+            write_log(f"Created stacks directory: {stacks_dir}", level="DEBUG")
         except Exception as e:
             raise PermissionError(f"Failed to create stacks directory: {stacks_dir}. Error: {str(e)}")
 
@@ -91,7 +91,7 @@ def setup_directories() -> bool:
         if not os.path.exists(path):
             try:
                 os.makedirs(path, exist_ok=True)
-                console.print(f"Created: {path}", style="grey50")
+                write_log(f"Created media directory: {path}", level="DEBUG")
             except Exception as e:
                 write_log(f"Warning: Could not create media folder {path}. It may need to be created manually. Error: {str(e)}", level="WARN")
 
@@ -103,5 +103,5 @@ def setup_directories() -> bool:
         with open(htpasswd_path, "w", encoding="utf-8") as f:
             pass
 
-    console.print("[OK] Directory structure ready", style="green")
+    console.print("[✓] Directory structure ready", style="green")
     return True

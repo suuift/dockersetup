@@ -4,7 +4,7 @@ version = "1.5.7"
 description = "Cross-platform python-based Docker media stack setup script"
 authors = ["suuift <suuift@gmail.com>"]
 readme = "README.md"
-packages = [{include = "dockersetup.py"}]
+packages = [{include = "dockersetup.py"}, {include = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"

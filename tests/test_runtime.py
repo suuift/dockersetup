@@ -7,11 +7,11 @@ from unittest.mock import MagicMock, patch
 # Ensure projects directory is in path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
-from utils.yaml_parser import get_yaml_content, get_template_blocks, get_registry_list
-from utils.state import get_metadata, set_metadata, set_env_var, save_env_vars
-from modules.preflight import is_admin
-from modules.directories import setup_directories
+from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
+from src.utils.yaml_parser import get_yaml_content, get_template_blocks, get_registry_list
+from src.utils.state import get_metadata, set_metadata, set_env_var, save_env_vars
+from src.modules.preflight import is_admin
+from src.modules.directories import setup_directories
 
 # Temporary test directories
 TEST_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -34,8 +34,8 @@ def test_path_resolution():
     assert resolve_path_slash("D:") == "D:/"
 
 def test_yaml_parsers():
-    services_path = os.path.join(TEST_PROJECT_ROOT, "services.yml")
-    template_path = os.path.join(TEST_PROJECT_ROOT, "templates.yml")
+    services_path = os.path.join(TEST_PROJECT_ROOT, "resources", "services.yml")
+    template_path = os.path.join(TEST_PROJECT_ROOT, "resources", "templates.yml")
     
     assert os.path.exists(services_path)
     assert os.path.exists(template_path)
@@ -95,7 +95,7 @@ def test_directory_setup():
     assert os.path.exists(os.path.join(TEST_DEPLOY_DIR, "media/downloads"))
 
 def test_timezone_detection():
-    from modules.env_wizard import detect_timezone, select_timezone_interactive
+    from src.modules.env_wizard import detect_timezone, select_timezone_interactive
     
     # 1. Test detect_timezone returns a string (not None or "None")
     tz = detect_timezone()
@@ -113,7 +113,7 @@ def test_timezone_detection():
     assert fallback_tz != "None"
 
 def test_compose_build_integration():
-    from modules.compose_build import build_compose_stacks
+    from src.modules.compose_build import build_compose_stacks
     
     # 1. Setup metadata
     set_metadata({
@@ -154,10 +154,10 @@ def test_compose_build_integration():
     # HTTP_PASSWORD should be filtered out from PVR stack as it's not used in its compose
     assert "HTTP_PASSWORD" not in env_content
 
-@patch("modules.auto_configure.wait_for_service")
+@patch("src.modules.auto_configure.wait_for_service")
 @patch("requests.Session.request")
 def test_auto_stitch_integration(mock_request, mock_wait):
-    from modules.auto_configure import auto_stitch_services
+    from src.modules.auto_configure import auto_stitch_services
     
     mock_wait.return_value = True
     
@@ -197,11 +197,11 @@ def test_auto_stitch_integration(mock_request, mock_wait):
     assert "auto_config_results" in meta
     assert len(meta["auto_config_results"]) > 0
 
-@patch("modules.deploy_start.invoke_external_command")
-@patch("modules.deploy_start.subprocess.run")
-@patch("modules.deploy_start.test_container_conflict")
+@patch("src.modules.deploy_start.invoke_external_command")
+@patch("src.modules.deploy_start.subprocess.run")
+@patch("src.modules.deploy_start.test_container_conflict")
 def test_deploy_stacks_success(mock_conflict, mock_run, mock_invoke):
-    from modules.deploy_start import deploy_stacks
+    from src.modules.deploy_start import deploy_stacks
     
     # Mock subprocess run to succeed
     mock_run.return_value = MagicMock(returncode=0, stdout="Success")
@@ -223,11 +223,11 @@ def test_deploy_stacks_success(mock_conflict, mock_run, mock_invoke):
     assert deploy_stacks() is True
     assert mock_run.called
 
-@patch("modules.deploy_start.invoke_external_command")
-@patch("modules.deploy_start.subprocess.run")
-@patch("modules.deploy_start.test_container_conflict")
+@patch("src.modules.deploy_start.invoke_external_command")
+@patch("src.modules.deploy_start.subprocess.run")
+@patch("src.modules.deploy_start.test_container_conflict")
 def test_deploy_stacks_pull_failure(mock_conflict, mock_run, mock_invoke):
-    from modules.deploy_start import deploy_stacks
+    from src.modules.deploy_start import deploy_stacks
     mock_invoke.return_value = None
     
     # Mock subprocess run to fail on pull
@@ -254,10 +254,10 @@ def test_deploy_stacks_pull_failure(mock_conflict, mock_run, mock_invoke):
     with pytest.raises(RuntimeError):
         deploy_stacks()
 
-@patch("utils.uninstall.subprocess.run")
+@patch("src.utils.uninstall.subprocess.run")
 @patch("questionary.confirm")
 def test_uninstall_workflow(mock_confirm, mock_run):
-    from utils.uninstall import main as uninstall_main
+    from src.utils.uninstall import main as uninstall_main
     
     # Setup environment
     os.environ["DEPLOY_DIR"] = TEST_DEPLOY_DIR

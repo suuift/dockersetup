@@ -8,22 +8,22 @@ import questionary
 from rich.console import Console
 
 # Bootstrap utilities
-from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
-from utils.logger import write_log, write_step, set_log_path, enable_debug_logging, get_log_path, invoke_external_command
-from utils.state import get_metadata, set_metadata
-from utils.yaml_parser import get_yaml_content, get_registry_list
-from utils.updater import invoke_self_update
+from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
+from src.utils.logger import write_log, write_step, set_log_path, enable_debug_logging, get_log_path, invoke_external_command
+from src.utils.state import get_metadata, set_metadata
+from src.utils.yaml_parser import get_yaml_content, get_registry_list
+from src.utils.updater import invoke_self_update
 
 # Import modules
-from modules.preflight import run_system_preflight
-from modules.deploy_preflight import run_deploy_preflight
-from modules.tier_select import select_services
-from modules.env_wizard import configure_environment
-from modules.directories import setup_directories
-from modules.network import setup_networks
-from modules.compose_build import build_compose_stacks
-from modules.deploy_start import deploy_stacks
-from modules.auto_configure import auto_stitch_services, test_port
+from src.modules.preflight import run_system_preflight
+from src.modules.deploy_preflight import run_deploy_preflight
+from src.modules.tier_select import select_services
+from src.modules.env_wizard import configure_environment
+from src.modules.directories import setup_directories
+from src.modules.network import setup_networks
+from src.modules.compose_build import build_compose_stacks
+from src.modules.deploy_start import deploy_stacks
+from src.modules.auto_configure import auto_stitch_services, test_port
 
 console = Console()
 
@@ -79,7 +79,7 @@ def invoke_token_wizard(target_dir: str):
         
         do_setup = questionary.confirm("Would you like to set these up now?", default=False).ask()
         if do_setup:
-            from utils.state import set_env_var
+            from src.utils.state import set_env_var
             for s in to_configure:
                 cfg = manual_services[s]
                 console.print(f"\n>> Configuring {cfg['Name']}", style="cyan")
@@ -366,8 +366,8 @@ def main():
                 if d_dir and os.path.exists(os.path.join(d_dir, "stacks")):
                     os.environ["DEPLOY_DIR"] = d_dir
                     
-                    # Call uninstall utility (we will write a simple python script for uninstall)
-                    uninstall_script = os.path.join(project_root, "utils", "uninstall.py")
+                    # Call uninstall utility
+                    uninstall_script = os.path.join(project_root, "src", "utils", "uninstall.py")
                     if os.path.exists(uninstall_script):
                         subprocess.run([sys.executable, uninstall_script])
                     else:
@@ -387,7 +387,21 @@ def main():
                     console.print("[!] Error: Invalid deployment folder.", style="red")
 
     except Exception as e:
-        console.print(f"\n[!] CRITICAL SCRIPT ERROR\nReason: {str(e)}", style="bold red")
+        import traceback
+        from rich.panel import Panel
+        
+        # Write traceback to setup.log
+        error_trace = traceback.format_exc()
+        write_log(f"CRITICAL EXCEPTION OCCURRED:\n{error_trace}", level="ERROR")
+        
+        log_path = get_log_path()
+        error_msg = f"[bold red]An unexpected error occurred during execution.[/bold red]\n\n" \
+                    f"[bold white]Reason:[/bold white] {str(e)}\n\n" \
+                    f"Please review the logs for the full stack trace:\n" \
+                    f"[cyan]{log_path}[/cyan]"
+                    
+        console.print(Panel(error_msg, title="[bold red]Critical Script Error[/bold red]", border_style="red"))
+        
         if os.getenv("TEST_MODE") == "true":
             sys.exit(1)
     finally:

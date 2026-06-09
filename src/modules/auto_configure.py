@@ -9,15 +9,15 @@ import xml.etree.ElementTree as ET
 import configparser
 import requests
 import questionary
-from utils.paths import get_project_root, get_deploy_dir
-from utils.logger import write_log, console, write_step, invoke_external_command
-from utils.state import get_metadata, set_metadata, set_env_var
-from utils.yaml_parser import get_yaml_content, get_registry_list
+from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
+from src.utils.logger import write_log, console, write_step, invoke_external_command
+from src.utils.state import get_metadata, set_metadata, set_env_var
+from src.utils.yaml_parser import get_yaml_content, get_registry_list
 
 # Explicit imports for strategies (required for PyInstaller tracing)
-from modules.strategies.strategy_servarr import run_servarr_strategy
-from modules.strategies.strategy_downloaders import run_downloaders_strategy
-from modules.strategies.strategy_dashboards import run_dashboards_strategy
+from src.modules.strategies.strategy_servarr import run_servarr_strategy
+from src.modules.strategies.strategy_downloaders import run_downloaders_strategy
+from src.modules.strategies.strategy_dashboards import run_dashboards_strategy
 
 def test_port(host: str, port: int, timeout: int = 2) -> bool:
     """
@@ -172,12 +172,12 @@ def invoke_robust_rest_method(url: str, method: str = "GET", json_payload: dict 
                 raise e
 
 def auto_stitch_services() -> bool:
-    write_log("Initializing automated service stitching...")
+    write_step("Running automated service configuration and stitching")
 
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
     env_path = os.path.join(deploy_dir, ".env")
-    services_path = os.path.join(project_root, "services.yml")
+    services_path = get_resource_path("services.yml")
 
     # Load Metadata
     metadata = get_metadata()
@@ -274,7 +274,7 @@ def auto_stitch_services() -> bool:
     for st in stacks_to_reload:
         st_path = os.path.join(deploy_dir, "stacks", st)
         if os.path.exists(st_path):
-            console.print(f"Reloading stack: {st}", style="cyan")
+            write_log(f"Reloading stack: {st}", level="DEBUG")
             if os.getenv("TEST_MODE") == "true":
                 write_log("TEST_MODE enabled. Skipping live docker stack reload.", level="INFO")
                 continue
@@ -287,5 +287,6 @@ def auto_stitch_services() -> bool:
             except Exception:
                 pass
 
-    write_log("Automated stitching complete.")
+    write_log("Automated stitching complete.", level="DEBUG")
+    console.print("[✓] Automated stitching complete", style="green")
     return True

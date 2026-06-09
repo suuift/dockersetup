@@ -11,9 +11,9 @@ import datetime
 import questionary
 from zoneinfo import ZoneInfo
 from tzlocal import get_localzone_name
-from utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
-from utils.logger import write_log, console
-from utils.state import get_metadata, save_env_vars
+from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
+from src.utils.logger import write_log, console
+from src.utils.state import get_metadata, save_env_vars
 
 def check_keyboard_locks():
     """
@@ -267,7 +267,7 @@ def select_timezone_interactive(detected_tz: str) -> str:
     return choice
 
 def configure_environment() -> bool:
-    write_log("Starting configuration wizard...")
+    write_step("Configuring environment settings")
     
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
@@ -403,7 +403,7 @@ def configure_environment() -> bool:
         lan_net = get_validated_input("Local Network Range", detect_lan_network())
 
     # Generate secure backend passwords
-    write_log("Generating secure application passwords...")
+    write_log("Generating secure application passwords...", level="DEBUG")
     db_root_pass = new_random_password()
     db_pass = new_random_password()
     mongo_pass = new_random_password()
@@ -431,7 +431,7 @@ def configure_environment() -> bool:
             write_log("Skipping .env creation.", level="INFO")
             return True
 
-    write_log("Writing environment variables...")
+    write_log("Writing environment variables...", level="DEBUG")
     save_env_vars(vars_dict, file_path=env_file)
 
     # Restrict permissions (Edge Case 7 - Windows NTFS icacls, Linux POSIX chmod)
@@ -442,15 +442,16 @@ def configure_environment() -> bool:
             username = getpass.getuser()
             # Windows icacls hardening
             subprocess.run(f'icacls "{env_file}" /inheritance:r /grant "{username}:F" /grant "*S-1-5-32-544:F"', shell=True, capture_output=True)
-            write_log("Restricted permissions on .env (NTFS icacls).")
+            write_log("Restricted permissions on .env (NTFS icacls).", level="DEBUG")
         except Exception as e:
             write_log(f"Failed to set .env permissions via icacls: {str(e)}", level="WARN")
     else:
         try:
             os.chmod(env_file, 0o600)
-            write_log("Restricted permissions on .env (POSIX chmod 600).")
+            write_log("Restricted permissions on .env (POSIX chmod 600).", level="DEBUG")
         except Exception as e:
             write_log(f"Failed to set .env permissions via chmod: {str(e)}", level="WARN")
 
-    write_log(f".env file successfully synchronized in {docker_dir}")
+    write_log(f".env file successfully synchronized in {docker_dir}", level="DEBUG")
+    console.print("[✓] Environment configuration synchronized", style="green")
     return True

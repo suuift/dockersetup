@@ -1,18 +1,19 @@
 import os
 import questionary
-from utils.paths import get_project_root
-from utils.logger import write_log, console
-from utils.state import get_metadata, set_metadata
-from utils.yaml_parser import get_yaml_content, get_registry_list, YamlService
+from src.utils.paths import get_project_root, get_resource_path
+from src.utils.logger import write_log, console, write_step
+from src.utils.state import get_metadata, set_metadata
+from src.utils.yaml_parser import get_yaml_content, get_registry_list, YamlService
 
 def select_services() -> list:
-    write_log("--- Selecting Services ---")
+    write_step("Selecting Stack Services & Tier")
     project_root = get_project_root()
-    services_path = os.path.join(project_root, "services.yml")
+    services_path = get_resource_path("services.yml")
 
     metadata = get_metadata()
     if os.getenv("SKIP_SELECTION") == "true" and metadata.get("selected_services"):
-        write_log("[UPGRADE] Recovered existing service selection from metadata. Skipping menu.", level="INFO")
+        write_log("[UPGRADE] Recovered existing service selection from metadata. Skipping menu.", level="DEBUG")
+        console.print("[✓] Service selections loaded from metadata", style="green")
         return metadata["selected_services"]
 
     master_registry = get_yaml_content(services_path)
@@ -30,9 +31,9 @@ def select_services() -> list:
 
     # 2. Add minimal services
     if "MINIMAL" in master_registry:
-        write_log("Configuring MINIMAL services:")
+        write_log("Configuring MINIMAL services:", level="DEBUG")
         for svc in master_registry["MINIMAL"]:
-            console.print(f" + {svc.key} ({svc.description if svc.description else ''})", style="green")
+            write_log(f" + {svc.key}", level="DEBUG")
             selected.append(svc.key)
 
     # 3. Custom / Advanced selections
@@ -59,7 +60,7 @@ def select_services() -> list:
                             if s not in selected:
                                 selected.append(s)
                 else:
-                    write_log(f"Skipping category: {cat}", level="INFO")
+                    write_log(f"Skipping category: {cat}", level="DEBUG")
 
     # 4. Dependency Mapping & Auto-Inclusion (Edge Case 11)
     db_addons = {
@@ -70,7 +71,7 @@ def select_services() -> list:
     for db, addon in db_addons.items():
         if db in selected and addon not in selected:
             selected.append(addon)
-            write_log(f"Automatically added dependency helper application: {addon}", level="INFO")
+            write_log(f"Automatically added dependency helper application: {addon}", level="DEBUG")
 
     # 5. Recommendation Engine
     rec_map = {}
@@ -103,12 +104,13 @@ def select_services() -> list:
             for rec in confirmed_recs:
                 if rec not in selected:
                     selected.append(rec)
-                    write_log(f"Added recommended service: {rec}", level="INFO")
+                    write_log(f"Added recommended service: {rec}", level="DEBUG")
 
     # Update metadata
     metadata["selected_services"] = selected
     metadata["tier"] = choice
     set_metadata(metadata)
-    write_log("Selection and Tier saved to metadata.")
+    write_log("Selection and Tier saved to metadata.", level="DEBUG")
+    console.print("[✓] Service selection saved", style="green")
     
     return selected

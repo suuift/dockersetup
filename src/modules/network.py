@@ -1,10 +1,10 @@
 import os
 import subprocess
-from utils.logger import write_log, console
-from utils.paths import get_clean_env
+from src.utils.logger import write_log, console, write_step
+from src.utils.paths import get_clean_env
 
 def setup_networks() -> bool:
-    console.print("\n--- Network Setup ---", style="cyan")
+    write_step("Configuring external Docker networks")
 
     if os.getenv("TEST_MODE") == "true":
         write_log("TEST_MODE enabled. Skipping live docker network configuration.", level="INFO")
@@ -37,10 +37,11 @@ def setup_networks() -> bool:
                     check=True,
                     env=get_clean_env()
                 )
-                console.print(f"[OK] Network '{net_name}' created", style="green")
+                write_log(f"Network '{net_name}' created", level="DEBUG")
             else:
-                console.print(f"[OK] Network '{net_name}' already exists", style="green")
+                write_log(f"Network '{net_name}' already exists", level="DEBUG")
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"Failed to check or create Docker network: {net_name}. Ensure Docker is running. Error: {str(e)}")
 
+    console.print("[✓] Docker networks configured", style="green")
     return True
