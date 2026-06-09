@@ -3,9 +3,21 @@ import sys
 import subprocess
 import shutil
 import urllib.request
+import json
 import questionary
 from src.utils.paths import get_project_root, get_clean_env
 from src.utils.logger import write_log, console
+
+VERSION = "1.5.8"
+
+def parse_version(v_str: str):
+    """
+    Parses a semantic version string (e.g. 'v1.5.8' or '1.5.8') into a list of integers.
+    """
+    try:
+        return [int(x) for x in v_str.lstrip("vV").split(".")]
+    except ValueError:
+        return [0, 0, 0]
 
 def invoke_self_update(project_root: str) -> bool:
     # Check if running in a Git repository (Source Mode)
@@ -61,10 +73,56 @@ def invoke_self_update(project_root: str) -> bool:
     # Check if running as a compiled PyInstaller binary (Frozen mode)
     elif getattr(sys, "frozen", False):
         console.print("--- Checking for Compiled Binary Updates ---", style="cyan")
-        # In a real scenario, we would check a GitHub releases API.
-        # For this blueprint implementation, we support the rename-and-replace update logic.
-        # We can implement a placeholder update check or query a mock URL.
-        # Let's write the swap logic to be fully functional.
+        try:
+            # Check the GitHub Releases API for updates
+            repo = "suuift/dockersetup"
+            api_url = f"https://api.github.com/repos/{repo}/releases/latest"
+            
+            req = urllib.request.Request(
+                api_url, 
+                headers={"User-Agent": "DockerSetup-Updater"}
+            )
+            
+            with urllib.request.urlopen(req, timeout=5) as response:
+                data = json.loads(response.read().decode())
+                latest_tag = data.get("tag_name", "")
+                
+                if not latest_tag:
+                    write_log("Unable to resolve the latest version from GitHub API.", level="WARN")
+                    return False
+                
+                local_ver = parse_version(VERSION)
+                remote_ver = parse_version(latest_tag)
+                
+                if remote_ver > local_ver:
+                    write_log(f"A new compiled release ({latest_tag}) is available. Current: v{VERSION}", level="WARN")
+                    
+                    # Search for appropriate binary asset based on operating system
+                    expected_asset_name = "dockersetup.exe" if sys.platform == "win32" else "dockersetup"
+                    download_url = None
+                    for asset in data.get("assets", []):
+                        if asset.get("name") == expected_asset_name:
+                            download_url = asset.get("browser_download_url")
+                            break
+                    
+                    if not download_url:
+                        write_log(f"Could not find binary asset '{expected_asset_name}' in the latest release.", level="WARN")
+                        return False
+                    
+                    apply = questionary.confirm(f"Download and upgrade to {latest_tag} now?", default=True).ask()
+                    if apply:
+                        perform_binary_swap(download_url, sys.executable)
+                        return True # Restart scheduled by binary swap
+                else:
+                    write_log(f"Binary is up to date (v{VERSION}).", level="INFO")
+                    
+        except urllib.error.HTTPError as e:
+            if e.code == 403:
+                write_log("GitHub API rate limit exceeded or access forbidden. Skipping update check.", level="DEBUG")
+            else:
+                write_log(f"HTTP error during update check: {e.code} {e.reason}", level="WARN")
+        except Exception as e:
+            write_log(f"Failed to check for binary updates: {str(e)}", level="WARN")
         return False
         
     return False
@@ -79,7 +137,11 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
     try:
         # 1. Download updated binary
         write_log(f"Downloading update from {download_url}...", level="INFO")
-        with urllib.request.urlopen(download_url) as response, open(temp_download_path, 'wb') as out_file:
+        req = urllib.request.Request(
+            download_url,
+            headers={"User-Agent": "DockerSetup-Updater"}
+        )
+        with urllib.request.urlopen(req) as response, open(temp_download_path, 'wb') as out_file:
             shutil.copyfileobj(response, out_file)
             
         # 2. Rename running binary to .old (Windows allows renaming running binaries)
@@ -94,9 +156,13 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
         # 3. Move new binary to main location
         shutil.move(temp_download_path, target_exe_path)
         
-        write_log("Update successfully staged. Restarting binary...", level="INFO")
+        # 4. Set executable permission on Unix-like OS
+        if sys.platform != "win32":
+            os.chmod(target_exe_path, 0o755)
         
-        # 4. Spawns new process and exit
+        write_log("Update successfully applied and staged. Restarting binary...", level="INFO")
+        
+        # 5. Spawns new process and exit
         subprocess.Popen([target_exe_path], env=get_clean_env())
         sys.exit(0)
         

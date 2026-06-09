@@ -12,7 +12,7 @@ from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
 from src.utils.logger import write_log, write_step, set_log_path, enable_debug_logging, get_log_path, invoke_external_command
 from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
-from src.utils.updater import invoke_self_update
+from src.utils.updater import invoke_self_update, VERSION
 
 # Import modules
 from src.modules.preflight import run_system_preflight
@@ -157,7 +157,7 @@ def main():
         exit_script = False
 
         while not exit_script:
-            console.print("\n--- Media Stack Manager ---", style="cyan")
+            console.print(f"\n--- Media Stack Manager v{VERSION} ---", style="cyan")
             console.print("[1] Install / Reconfigure / Upgrade Stack")
             console.print("[2] Force Update All Containers (Existing Setup)")
             console.print("[3] Uninstall Stack")
