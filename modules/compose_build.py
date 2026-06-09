@@ -99,6 +99,18 @@ def build_compose_stacks() -> bool:
                     if "privileged: true" in svc_content or "cap_add:" in svc_content and "SYS_ADMIN" in svc_content:
                         write_step(f"Security Warning: Service '{svc}' in stack '{stack_name}' is privileged.", level="WARN")
 
+                    # Audit template version tags for critical services (Verbose only)
+                    critical_services = ["mariadb (+adminer)", "postgresql (+cloudbeaver)", "mongodb (+mongo-express)", "authelia"]
+                    if svc in critical_services:
+                        match_img = re.search(r"image:\s*([^\s]+)", svc_content)
+                        if match_img:
+                            image = match_img.group(1)
+                            if image.endswith(":latest") or ":" not in image:
+                                write_log(
+                                    f"[AUDIT] Insecure tag found in critical service '{svc}': image is using '{image}'. Consider pinning to a stable version.",
+                                    level="DEBUG"
+                                )
+
                     if "{{DYNAMIC_MOUNTS}}" in svc_content:
                         svc_content = svc_content.replace("{{DYNAMIC_MOUNTS}}", dynamic_mounts_string)
 

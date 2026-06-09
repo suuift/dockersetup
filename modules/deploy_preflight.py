@@ -2,7 +2,6 @@ import os
 import shutil
 from utils.paths import get_project_root, get_deploy_dir
 from utils.logger import write_log, console
-from utils.yaml_parser import test_template_versions
 
 def run_deploy_preflight() -> bool:
     console.print("\n--- Deployment Preflight Checks ---", style="cyan")
@@ -28,11 +27,6 @@ def run_deploy_preflight() -> bool:
             console.print(f"[OK] Sufficient disk space ({free_gb} GB free)", style="green")
     except Exception as e:
         write_log(f"Failed to check disk space: {str(e)}", level="WARN")
-
-    # 2. Audit template version tags for critical services
-    template_path = os.path.join(project_root, "templates.yml")
-    if os.path.exists(template_path):
-        test_template_versions(template_path)
 
     console.print("Deployment preflight checks passed.", style="green")
     return True
