@@ -29,13 +29,13 @@ console = Console()
 
 def sync_dot_env(source_env: str, target_dir: str):
     write_log("Syncing environment variables to stack folders...", level="DEBUG")
-    stacks_dir = os.path.join(target_dir, "stacks")
+    stacks_dir = resolve_path_slash(os.path.join(target_dir, "stacks"))
     if os.path.exists(stacks_dir):
         for name in os.listdir(stacks_dir):
-            folder_path = os.path.join(stacks_dir, name)
+            folder_path = resolve_path_slash(os.path.join(stacks_dir, name))
             if os.path.isdir(folder_path):
                 try:
-                    shutil.copy(source_env, os.path.join(folder_path, ".env"))
+                    shutil.copy(source_env, resolve_path_slash(os.path.join(folder_path, ".env")))
                 except Exception as e:
                     write_log(f"Failed to copy .env to {folder_path}: {str(e)}", level="WARN")
 
@@ -45,7 +45,7 @@ def invoke_token_wizard(target_dir: str):
     if not selected:
         return
 
-    env_path = os.path.join(target_dir, ".env")
+    env_path = resolve_path_slash(os.path.join(target_dir, ".env"))
     if not os.path.exists(env_path):
         return
 
@@ -92,7 +92,7 @@ def invoke_token_wizard(target_dir: str):
                     console.print(f"[OK] Saved {cfg['Var']} to .env", style="green")
 
             # Restart maintenance stack
-            hp_path = os.path.join(target_dir, "stacks", "maintenance")
+            hp_path = resolve_path_slash(os.path.join(target_dir, "stacks", "maintenance"))
             if os.path.exists(hp_path):
                 write_step("Reloading Dashboard to apply new tokens...")
                 try:
@@ -202,7 +202,7 @@ def main():
                     
                     # Check for template updates
                     needs_upgrade = False
-                    template_path = os.path.join(project_root, "templates.yml")
+                    template_path = resolve_path_slash(os.path.join(project_root, "templates.yml"))
                     
                     sha256 = hashlib.sha256()
                     with open(template_path, "rb") as f:
@@ -230,7 +230,7 @@ def main():
                             confirm = questionary.confirm("Are you sure you want to wipe existing settings?", default=False).ask()
                             if confirm:
                                 for file in [".metadata.json", ".env"]:
-                                    file_p = os.path.join(d_dir, file)
+                                    file_p = resolve_path_slash(os.path.join(d_dir, file))
                                     if os.path.exists(file_p):
                                         try:
                                             shutil.copy2(file_p, file_p + ".bak")
@@ -284,7 +284,7 @@ def main():
                     # Health check summary
                     if metadata.get("selected_services") and os.getenv("TEST_MODE") != "true":
                         console.print("\nSERVICE HEALTH STATUS:", style="yellow")
-                        services_path = os.path.join(project_root, "services.yml")
+                        services_path = resolve_path_slash(os.path.join(project_root, "services.yml"))
                         master_registry = get_yaml_content(services_path)
                         registry_list = get_registry_list(master_registry)
 
@@ -318,7 +318,7 @@ def main():
                     # Extract credentials for printout
                     h_user = "admin"
                     h_pass = "[CHECK .ENV]"
-                    env_file = os.path.join(d_dir, ".env")
+                    env_file = resolve_path_slash(os.path.join(d_dir, ".env"))
                     if os.path.exists(env_file):
                         with open(env_file, "r", encoding="utf-8") as f:
                             for line in f:
@@ -345,11 +345,11 @@ def main():
 
             elif choice == "2":
                 d_dir = get_deployment_dir_interactive(project_root)
-                if d_dir and os.path.exists(os.path.join(d_dir, "stacks")):
+                if d_dir and os.path.exists(resolve_path_slash(os.path.join(d_dir, "stacks"))):
                     os.environ["DEPLOY_DIR"] = d_dir
-                    stacks_dir = os.path.join(d_dir, "stacks")
+                    stacks_dir = resolve_path_slash(os.path.join(d_dir, "stacks"))
                     for stack in os.listdir(stacks_dir):
-                        full_path = os.path.join(stacks_dir, stack)
+                        full_path = resolve_path_slash(os.path.join(stacks_dir, stack))
                         if os.path.isdir(full_path):
                             write_step(f"Updating Stack: {stack}")
                             # Execute docker compose pull and up
@@ -363,11 +363,11 @@ def main():
 
             elif choice == "3":
                 d_dir = get_deployment_dir_interactive(project_root)
-                if d_dir and os.path.exists(os.path.join(d_dir, "stacks")):
+                if d_dir and os.path.exists(resolve_path_slash(os.path.join(d_dir, "stacks"))):
                     os.environ["DEPLOY_DIR"] = d_dir
                     
                     # Call uninstall utility
-                    uninstall_script = os.path.join(project_root, "src", "utils", "uninstall.py")
+                    uninstall_script = resolve_path_slash(os.path.join(project_root, "src", "utils", "uninstall.py"))
                     if os.path.exists(uninstall_script):
                         subprocess.run([sys.executable, uninstall_script])
                     else:
@@ -375,9 +375,9 @@ def main():
                         console.print("\n--- Uninstalling Stack ---", style="bold red")
                         confirm = questionary.confirm("Are you sure you want to completely uninstall all services and docker stacks?", default=False).ask()
                         if confirm:
-                            stacks_dir = os.path.join(d_dir, "stacks")
+                            stacks_dir = resolve_path_slash(os.path.join(d_dir, "stacks"))
                             for stack in os.listdir(stacks_dir):
-                                full_path = os.path.join(stacks_dir, stack)
+                                full_path = resolve_path_slash(os.path.join(stacks_dir, stack))
                                 if os.path.isdir(full_path):
                                     subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=full_path)
                             shutil.rmtree(stacks_dir, ignore_errors=True)

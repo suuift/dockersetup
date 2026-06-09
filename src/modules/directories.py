@@ -10,7 +10,7 @@ def setup_directories() -> bool:
 
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
-    env_path = os.path.join(deploy_dir, ".env")
+    env_path = resolve_path_slash(os.path.join(deploy_dir, ".env"))
 
     if not os.path.exists(env_path):
         raise FileNotFoundError(f"Configuration file (.env) missing in {deploy_dir}. Please run the environment wizard.")
@@ -47,9 +47,9 @@ def setup_directories() -> bool:
     for app in selected:
         clean_app = app.lower().split(" ")[0]  # E.g. mariadb (+adminer) -> mariadb
         
-        path = os.path.join(docker_dir, "appdata", clean_app, "config")
+        path = resolve_path_slash(os.path.join(docker_dir, "appdata", clean_app, "config"))
         if clean_app == "dockge":
-            path = os.path.join(docker_dir, "appdata", "dockge", "data")
+            path = resolve_path_slash(os.path.join(docker_dir, "appdata", "dockge", "data"))
             
         if not os.path.exists(path):
             try:
@@ -59,7 +59,7 @@ def setup_directories() -> bool:
                 raise PermissionError(f"Failed to create directory: {path}. Ensure you have write permissions. Error: {str(e)}")
 
     # Create stacks directory for Dockge
-    stacks_dir = os.path.join(docker_dir, "stacks")
+    stacks_dir = resolve_path_slash(os.path.join(docker_dir, "stacks"))
     if not os.path.exists(stacks_dir):
         try:
             os.makedirs(stacks_dir, exist_ok=True)
@@ -87,7 +87,7 @@ def setup_directories() -> bool:
         media_folders.append("documents")
 
     for folder in media_folders:
-        path = os.path.join(drive_pool, folder)
+        path = resolve_path_slash(os.path.join(drive_pool, folder))
         if not os.path.exists(path):
             try:
                 os.makedirs(path, exist_ok=True)
@@ -96,9 +96,9 @@ def setup_directories() -> bool:
                 write_log(f"Warning: Could not create media folder {path}. It may need to be created manually. Error: {str(e)}", level="WARN")
 
     # Create placeholder files
-    shared_path = os.path.join(docker_dir, "shared")
+    shared_path = resolve_path_slash(os.path.join(docker_dir, "shared"))
     os.makedirs(shared_path, exist_ok=True)
-    htpasswd_path = os.path.join(shared_path, ".htpasswd")
+    htpasswd_path = resolve_path_slash(os.path.join(shared_path, ".htpasswd"))
     if not os.path.exists(htpasswd_path):
         with open(htpasswd_path, "w", encoding="utf-8") as f:
             pass

@@ -6,7 +6,7 @@ import time
 import subprocess
 import questionary
 from concurrent.futures import ThreadPoolExecutor
-from src.utils.paths import get_project_root, get_deploy_dir, get_clean_env
+from src.utils.paths import get_project_root, get_deploy_dir, get_clean_env, resolve_path_slash
 from src.utils.logger import write_log, console, write_step, invoke_external_command
 from src.utils.state import get_metadata
 
@@ -87,7 +87,7 @@ def deploy_stacks() -> bool:
         write_log("No generated stacks found in metadata. Skipping deployment.", level="WARN")
         return True
 
-    stacks_dir = os.path.join(deploy_dir, "stacks")
+    stacks_dir = resolve_path_slash(os.path.join(deploy_dir, "stacks"))
 
     # 1. Start CORE stack first
     core_stack = None
@@ -98,7 +98,7 @@ def deploy_stacks() -> bool:
 
     if core_stack:
         write_step("Initializing CORE Stack (Networking & Database)")
-        path = os.path.join(stacks_dir, "core")
+        path = resolve_path_slash(os.path.join(stacks_dir, "core"))
         if os.path.exists(path):
             test_container_conflict(path, "core")
             try:
@@ -124,7 +124,7 @@ def deploy_stacks() -> bool:
             name = stack.get("Name")
             if name == "core":
                 continue
-            path = os.path.join(stacks_dir, name)
+            path = resolve_path_slash(os.path.join(stacks_dir, name))
             if os.path.exists(path):
                 write_log(f"Queuing image pull for stack: {name}", level="DEBUG")
                 pull_tasks.append(executor.submit(pull_stack_images, name, path))
@@ -173,7 +173,7 @@ def deploy_stacks() -> bool:
                     retry_tasks = []
                     with ThreadPoolExecutor(max_workers=3) as executor:
                         for name in failed_pulls:
-                            path = os.path.join(stacks_dir, name)
+                            path = resolve_path_slash(os.path.join(stacks_dir, name))
                             if os.path.exists(path):
                                 write_log(f"Queuing retry image pull for stack: {name}", level="INFO")
                                 retry_tasks.append(executor.submit(pull_stack_images, name, path))
@@ -209,7 +209,7 @@ def deploy_stacks() -> bool:
         name = stack.get("Name")
         if name == "core":
             continue
-        path = os.path.join(stacks_dir, name)
+        path = resolve_path_slash(os.path.join(stacks_dir, name))
         if os.path.exists(path):
             try:
                 test_container_conflict(path, name)

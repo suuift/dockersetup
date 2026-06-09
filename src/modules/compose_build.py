@@ -1,7 +1,7 @@
 import os
 import re
 import hashlib
-from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
+from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path, resolve_path_slash
 from src.utils.logger import write_log, console, write_step
 from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_template_blocks, get_registry_list
@@ -17,7 +17,7 @@ def build_compose_stacks() -> bool:
 
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
-    env_path = os.path.join(deploy_dir, ".env")
+    env_path = resolve_path_slash(os.path.join(deploy_dir, ".env"))
     template_path = get_resource_path("templates.yml")
     services_path = get_resource_path("services.yml")
 
@@ -52,7 +52,7 @@ def build_compose_stacks() -> bool:
     metadata["template_hash"] = current_hash
     set_metadata(metadata)
 
-    stacks_dir = os.path.join(deploy_dir, "stacks")
+    stacks_dir = resolve_path_slash(os.path.join(deploy_dir, "stacks"))
     os.makedirs(stacks_dir, exist_ok=True)
 
     generated_stacks = []

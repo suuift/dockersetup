@@ -353,7 +353,7 @@ def configure_environment() -> bool:
             for p in ["/mnt", "/media"]:
                 if os.path.exists(p):
                     for d in os.listdir(p):
-                        full_p = os.path.join(p, d)
+                        full_p = resolve_path_slash(os.path.join(p, d))
                         if os.path.ismount(full_p):
                             if os.getenv("DS_HEADLESS") == "true":
                                 continue
@@ -424,7 +424,7 @@ def configure_environment() -> bool:
         "KOPIA_PASSWORD": kopia_pass, "CROWDSEC_ENABLED": crowdsec_enabled, "CROWDSEC_API_KEY": crowdsec_key
     }
 
-    env_file = os.path.join(docker_dir, ".env")
+    env_file = resolve_path_slash(os.path.join(docker_dir, ".env"))
     if os.path.exists(env_file) and os.getenv("DS_HEADLESS") != "true":
         overwrite = questionary.confirm(f".env already exists in {docker_dir}. Overwrite?", default=False).ask()
         if not overwrite:
