@@ -197,3 +197,90 @@ def test_auto_stitch_integration(mock_request, mock_wait):
     assert "auto_config_results" in meta
     assert len(meta["auto_config_results"]) > 0
 
+@patch("modules.deploy_start.invoke_external_command")
+@patch("modules.deploy_start.subprocess.run")
+@patch("modules.deploy_start.test_container_conflict")
+def test_deploy_stacks_success(mock_conflict, mock_run, mock_invoke):
+    from modules.deploy_start import deploy_stacks
+    
+    # Mock subprocess run to succeed
+    mock_run.return_value = MagicMock(returncode=0, stdout="Success")
+    mock_invoke.return_value = None
+    
+    # Setup deployment directory and files
+    set_metadata({
+        "generated_stacks": [
+            {"Name": "core"},
+            {"Name": "media-server"}
+        ]
+    })
+    
+    stacks_dir = os.path.join(TEST_DEPLOY_DIR, "stacks")
+    os.makedirs(os.path.join(stacks_dir, "core"), exist_ok=True)
+    os.makedirs(os.path.join(stacks_dir, "media-server"), exist_ok=True)
+    
+    # Execute deploy
+    assert deploy_stacks() is True
+    assert mock_run.called
+
+@patch("modules.deploy_start.invoke_external_command")
+@patch("modules.deploy_start.subprocess.run")
+@patch("modules.deploy_start.test_container_conflict")
+def test_deploy_stacks_pull_failure(mock_conflict, mock_run, mock_invoke):
+    from modules.deploy_start import deploy_stacks
+    mock_invoke.return_value = None
+    
+    # Mock subprocess run to fail on pull
+    def run_side_effect(args, **kwargs):
+        if "pull" in args:
+            raise subprocess.CalledProcessError(1, args)
+        return MagicMock(returncode=0, stdout="Success")
+        
+    mock_run.side_effect = run_side_effect
+    
+    set_metadata({
+        "generated_stacks": [
+            {"Name": "core"},
+            {"Name": "media-server"}
+        ]
+    })
+    
+    stacks_dir = os.path.join(TEST_DEPLOY_DIR, "stacks")
+    os.makedirs(os.path.join(stacks_dir, "core"), exist_ok=True)
+    os.makedirs(os.path.join(stacks_dir, "media-server"), exist_ok=True)
+    
+    # Under headless mode, pull failures must raise RuntimeError
+    import subprocess
+    with pytest.raises(RuntimeError):
+        deploy_stacks()
+
+@patch("utils.uninstall.subprocess.run")
+@patch("questionary.confirm")
+def test_uninstall_workflow(mock_confirm, mock_run):
+    from utils.uninstall import main as uninstall_main
+    
+    # Setup environment
+    os.environ["DEPLOY_DIR"] = TEST_DEPLOY_DIR
+    
+    # Write mock files to satisfy the validation checks in uninstall
+    os.makedirs(os.path.join(TEST_DEPLOY_DIR, "stacks"), exist_ok=True)
+    with open(os.path.join(TEST_DEPLOY_DIR, ".metadata.json"), "w") as f:
+        f.write("{}")
+    with open(os.path.join(TEST_DEPLOY_DIR, ".env"), "w") as f:
+        f.write("HTTP_PASSWORD=test")
+        
+    # Mock user input: confirmation to proceed and deletion of volumes
+    mock_confirm.return_value = MagicMock(ask=lambda: True)
+    mock_run.return_value = MagicMock(returncode=0)
+    
+    # Run uninstall main
+    try:
+        uninstall_main()
+    except SystemExit as e:
+        assert e.code == 0
+        
+    # Verify cleanup occurred
+    assert not os.path.exists(os.path.join(TEST_DEPLOY_DIR, "stacks"))
+    assert not os.path.exists(os.path.join(TEST_DEPLOY_DIR, ".metadata.json"))
+
+
