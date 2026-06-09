@@ -232,6 +232,11 @@ def main():
                                 for file in [".metadata.json", ".env"]:
                                     file_p = os.path.join(d_dir, file)
                                     if os.path.exists(file_p):
+                                        try:
+                                            shutil.copy2(file_p, file_p + ".bak")
+                                            console.print(f"[Backup] Saved backup to {file}.bak", style="grey50")
+                                        except Exception:
+                                            pass
                                         os.remove(file_p)
                                 console.print("Settings wiped. Starting fresh install...", style="grey50")
                             else:

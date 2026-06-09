@@ -4,6 +4,7 @@ import time
 import subprocess
 from datetime import datetime
 from rich.console import Console
+from utils.paths import get_clean_env
 
 console = Console()
 
@@ -91,7 +92,8 @@ def invoke_external_command(command: str, description: str = "Executing command"
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=get_clean_env()
         )
         
         while True:

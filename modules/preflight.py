@@ -5,6 +5,7 @@ import platform
 import subprocess
 import ctypes
 from utils.logger import write_log, console
+from utils.paths import get_clean_env
 
 def is_admin() -> bool:
     if platform.system() == "Windows":
@@ -47,7 +48,8 @@ def run_system_preflight() -> bool:
         docker_version = subprocess.check_output(
             ["docker", "--version"],
             text=True,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env=get_clean_env()
         ).strip()
         console.print(f"[OK] {docker_version} detected", style="green")
     except Exception:
@@ -58,7 +60,8 @@ def run_system_preflight() -> bool:
         compose_proc = subprocess.run(
             ["docker", "compose", "version"],
             capture_output=True,
-            text=True
+            text=True,
+            env=get_clean_env()
         )
         if compose_proc.returncode != 0:
             raise RuntimeError("Docker Compose V2 not found. Please ensure compose plugin is active.")

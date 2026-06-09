@@ -4,7 +4,7 @@ import subprocess
 import shutil
 import urllib.request
 import questionary
-from utils.paths import get_project_root
+from utils.paths import get_project_root, get_clean_env
 from utils.logger import write_log, console
 
 def invoke_self_update(project_root: str) -> bool:
@@ -20,7 +20,7 @@ def invoke_self_update(project_root: str) -> bool:
             if install:
                 if sys.platform == "win32" and shutil.which("winget"):
                     console.print("Installing Git via winget...", style="grey50")
-                    ret = subprocess.run("winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements", shell=True)
+                    ret = subprocess.run("winget install --id Git.Git -e --source winget --accept-package-agreements --accept-source-agreements", shell=True, env=get_clean_env())
                     if ret.returncode != 0:
                         write_log("Winget install failed. Please install Git manually from https://git-scm.com/", level="ERROR")
                         return False
@@ -32,15 +32,15 @@ def invoke_self_update(project_root: str) -> bool:
 
         try:
             # Run git fetch and status checks
-            subprocess.run(["git", "fetch"], cwd=project_root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            status_proc = subprocess.run(["git", "status", "-uno"], cwd=project_root, capture_output=True, text=True)
+            subprocess.run(["git", "fetch"], cwd=project_root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=get_clean_env())
+            status_proc = subprocess.run(["git", "status", "-uno"], cwd=project_root, capture_output=True, text=True, env=get_clean_env())
             
             if "Your branch is behind" in status_proc.stdout:
                 write_log("A new version of the Docker Setup Suite is available.", level="WARN")
                 apply = questionary.confirm("Update and restart now?", default=True).ask()
                 if apply:
                     console.print("Updating scripts...", style="grey50")
-                    subprocess.run(["git", "pull"], cwd=project_root)
+                    subprocess.run(["git", "pull"], cwd=project_root, env=get_clean_env())
                     return True # Needs restart
             else:
                 write_log("Scripts are up to date.", level="INFO")
@@ -87,7 +87,7 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
         write_log("Update successfully staged. Restarting binary...", level="INFO")
         
         # 4. Spawns new process and exit
-        subprocess.Popen([target_exe_path])
+        subprocess.Popen([target_exe_path], env=get_clean_env())
         sys.exit(0)
         
     except PermissionError as e:
