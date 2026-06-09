@@ -13,10 +13,11 @@ Invoke-WebRequest -Uri "https://github.com/suuift/dockersetup/releases/latest/do
 ```
 
 ### Linux (Shell)
-Run this command in your terminal. You may be prompted for your `sudo` password to allow the installer to configure Docker and filesystem permissions.
+Run this command in your terminal. For standard setups where your user is in the `docker` group, running without `sudo` is recommended.
 ```bash
-curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/latest/download/dockersetup && chmod +x dockersetup && sudo ./dockersetup
+curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/latest/download/dockersetup && chmod +x dockersetup && ./dockersetup
 ```
+*(Note: Use `sudo ./dockersetup` only if your user lacks docker group socket permissions or you are deploying to a system-protected path like `/opt`)*
 
 ---
 
