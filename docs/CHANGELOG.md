@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.9] - 2026-06-09
+### Added
+- **[Self-Update]** Fully implemented update checking and binary swapping for compiled/frozen executables (Linux and Windows).
+- **[UI]** Added dynamic version display to the main menu header.
+- **[Permissions]** Resolved write permission issues for containers deployed on Linux (specifically immutable setups like Bazzite/SteamOS) by auto-detecting `SUDO_UID`/`SUDO_GID` and applying proper owner mapping recursively.
+- **[Security]** Hardened compiled binary updater SSL verification by establishing a dedicated `certifi` CA Cert Bundle context (resolving issuer verification crashes on immutable Linux distributions).
+- **[Bugfix]** Patched temporary path resolution logic (`get_resource_path`) in `dockersetup.py` for compiled executables to prevent startup `templates.yml` and `services.yml` FileNotFound crashes on reconfigurations/removals.
+- **[Wizards]** Upgraded confirmation prompts to require explicit `Enter` key validation (Yes/No select lists) to prevent accidental keystroke selections.
+
 ## [1.5.8] - 2026-06-09
 ### Added
 - **[Homepage]** Added automatic generation of `bookmarks.yaml` providing a clickable GitHub shortcut directly to the source repository.
