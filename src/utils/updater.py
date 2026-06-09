@@ -7,7 +7,7 @@ import json
 import ssl
 import questionary
 from src.utils.paths import get_project_root, get_clean_env
-from src.utils.logger import write_log, console
+from src.utils.logger import write_log, console, safe_confirm
 
 try:
     import certifi
@@ -35,7 +35,7 @@ def invoke_self_update(project_root: str) -> bool:
         git_exists = shutil.which("git") is not None
         if not git_exists:
             write_log("Git is not installed. We need it to check for script updates.", level="WARN")
-            install = questionary.confirm("Would you like to install Git now via winget/package manager?", default=False).ask()
+            install = safe_confirm("Would you like to install Git now via winget/package manager?", default=False)
             if install:
                 if sys.platform == "win32" and shutil.which("winget"):
                     console.print("Installing Git via winget...", style="grey50")
@@ -66,7 +66,7 @@ def invoke_self_update(project_root: str) -> bool:
             
             if "Your branch is behind" in status_proc.stdout:
                 write_log("A new version of the Docker Setup Suite is available.", level="WARN")
-                apply = questionary.confirm("Update and restart now?", default=True).ask()
+                apply = safe_confirm("Update and restart now?", default=True)
                 if apply:
                     console.print("Updating scripts...", style="grey50")
                     subprocess.run(["git", "pull"], cwd=project_root, env=get_clean_env())
@@ -116,7 +116,7 @@ def invoke_self_update(project_root: str) -> bool:
                         write_log(f"Could not find binary asset '{expected_asset_name}' in the latest release.", level="WARN")
                         return False
                     
-                    apply = questionary.confirm(f"Download and upgrade to {latest_tag} now?", default=True).ask()
+                    apply = safe_confirm(f"Download and upgrade to {latest_tag} now?", default=True)
                     if apply:
                         perform_binary_swap(download_url, sys.executable)
                         return True # Restart scheduled by binary swap

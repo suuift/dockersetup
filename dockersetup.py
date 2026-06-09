@@ -9,7 +9,7 @@ from rich.console import Console
 
 # Bootstrap utilities
 from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash, get_resource_path
-from src.utils.logger import write_log, write_step, set_log_path, enable_debug_logging, get_log_path, invoke_external_command
+from src.utils.logger import write_log, write_step, set_log_path, enable_debug_logging, get_log_path, invoke_external_command, safe_confirm
 from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
 from src.utils.updater import invoke_self_update, VERSION
@@ -77,7 +77,7 @@ def invoke_token_wizard(target_dir: str):
             console.print(f" - {manual_services[s]['Name']}", style="yellow")
         console.print("")
         
-        do_setup = questionary.confirm("Would you like to set these up now?", default=False).ask()
+        do_setup = safe_confirm("Would you like to set these up now?", default=False)
         if do_setup:
             from src.utils.state import set_env_var
             for s in to_configure:
@@ -125,7 +125,7 @@ def get_deployment_dir_interactive(project_root: str, required: bool = True) -> 
         if os.getenv("DS_HEADLESS") == "true":
             create = True
         else:
-            create = questionary.confirm(f"Folder '{norm_path}' does not exist. Create it?", default=True).ask()
+            create = safe_confirm(f"Folder '{norm_path}' does not exist. Create it?", default=True)
         if create:
             os.makedirs(norm_path, exist_ok=True)
         else:
@@ -230,7 +230,7 @@ def main():
                             console.print("\n[bold red][!] WARNING: A Full Reset will completely destroy all active containers,[/bold red]")
                             console.print("[bold red]    remove docker volumes, and delete all configuration folders (appdata) under:[/bold red]")
                             console.print(f"    [cyan]{d_dir}[/cyan]\n")
-                            confirm = questionary.confirm("Are you sure you want to permanently wipe all containers and configurations?", default=False).ask()
+                            confirm = safe_confirm("Are you sure you want to permanently wipe all containers and configurations?", default=False)
                             if confirm:
                                 # Stop containers and clean volumes first if stacks exist
                                 stacks_dir = resolve_path_slash(os.path.join(d_dir, "stacks"))
@@ -402,7 +402,7 @@ def main():
                     else:
                         # Manual inline uninstall
                         console.print("\n--- Uninstalling Stack ---", style="bold red")
-                        confirm = questionary.confirm("Are you sure you want to completely uninstall all services and docker stacks?", default=False).ask()
+                        confirm = safe_confirm("Are you sure you want to completely uninstall all services and docker stacks?", default=False)
                         if confirm:
                             stacks_dir = resolve_path_slash(os.path.join(d_dir, "stacks"))
                             for stack in os.listdir(stacks_dir):

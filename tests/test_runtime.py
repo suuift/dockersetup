@@ -263,7 +263,7 @@ def test_deploy_stacks_pull_failure(mock_conflict, mock_run, mock_invoke):
         deploy_stacks()
 
 @patch("src.utils.uninstall.subprocess.run")
-@patch("questionary.confirm")
+@patch("src.utils.uninstall.safe_confirm")
 def test_uninstall_workflow(mock_confirm, mock_run):
     from src.utils.uninstall import main as uninstall_main
     
@@ -278,7 +278,7 @@ def test_uninstall_workflow(mock_confirm, mock_run):
         f.write("HTTP_PASSWORD=test")
         
     # Mock user input: confirmation to proceed and deletion of volumes
-    mock_confirm.return_value = MagicMock(ask=lambda: True)
+    mock_confirm.return_value = True
     mock_run.return_value = MagicMock(returncode=0)
     
     # Run uninstall main

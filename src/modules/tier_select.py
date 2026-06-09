@@ -1,7 +1,7 @@
 import os
 import questionary
 from src.utils.paths import get_project_root, get_resource_path
-from src.utils.logger import write_log, console, write_step
+from src.utils.logger import write_log, console, write_step, safe_confirm
 from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list, YamlService
 
@@ -41,7 +41,7 @@ def select_services() -> list:
         categories = ["MANAGEMENT", "NETWORKING", "DATABASE", "REMOTE", "TOOLS", "GAMES"]
         for cat in categories:
             if cat in master_registry and master_registry[cat]:
-                show_cat = questionary.confirm(f"\nShow services in {cat}?", default=False).ask()
+                show_cat = safe_confirm(f"\nShow services in {cat}?", default=False)
                 if show_cat:
                     choices = [
                         questionary.Choice(

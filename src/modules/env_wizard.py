@@ -12,7 +12,7 @@ import questionary
 from zoneinfo import ZoneInfo
 from tzlocal import get_localzone_name
 from src.utils.paths import get_project_root, get_deploy_dir, resolve_path_slash
-from src.utils.logger import write_log, console
+from src.utils.logger import write_log, console, write_step, safe_confirm
 from src.utils.state import get_metadata, save_env_vars
 
 def check_keyboard_locks():
@@ -231,7 +231,7 @@ def select_timezone_interactive(detected_tz: str) -> str:
                 pass
 
     confirm_msg = f"We detected your timezone as '{guessed_tz}'. Is this correct?"
-    confirm = questionary.confirm(confirm_msg, default=True).ask()
+    confirm = safe_confirm(confirm_msg, default=True)
     if confirm:
         return guessed_tz
 
@@ -347,7 +347,7 @@ def configure_environment() -> bool:
             for drive in available_drives:
                 if os.getenv("DS_HEADLESS") == "true":
                     continue
-                mount = questionary.confirm(f"Mount drive {drive}:\\?", default=False).ask()
+                mount = safe_confirm(f"Mount drive {drive}:\\?", default=False)
                 if mount:
                     drives_to_mount.append(f"{drive}:/")
         else:
@@ -359,7 +359,7 @@ def configure_environment() -> bool:
                         if os.path.ismount(full_p):
                             if os.getenv("DS_HEADLESS") == "true":
                                 continue
-                            mount = questionary.confirm(f"Mount path {full_p}?", default=False).ask()
+                            mount = safe_confirm(f"Mount path {full_p}?", default=False)
                             if mount:
                                 drives_to_mount.append(full_p)
         
@@ -428,7 +428,7 @@ def configure_environment() -> bool:
 
     env_file = resolve_path_slash(os.path.join(docker_dir, ".env"))
     if os.path.exists(env_file) and os.getenv("DS_HEADLESS") != "true":
-        overwrite = questionary.confirm(f".env already exists in {docker_dir}. Overwrite?", default=False).ask()
+        overwrite = safe_confirm(f".env already exists in {docker_dir}. Overwrite?", default=False)
         if not overwrite:
             write_log("Skipping .env creation.", level="INFO")
             return True

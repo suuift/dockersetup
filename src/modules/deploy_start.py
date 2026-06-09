@@ -7,7 +7,7 @@ import subprocess
 import questionary
 from concurrent.futures import ThreadPoolExecutor
 from src.utils.paths import get_project_root, get_deploy_dir, get_clean_env, resolve_path_slash
-from src.utils.logger import write_log, console, write_step, invoke_external_command
+from src.utils.logger import write_log, console, write_step, invoke_external_command, safe_confirm
 from src.utils.state import get_metadata
 
 def test_container_conflict(stack_path: str, stack_name: str):
@@ -54,7 +54,7 @@ def test_container_conflict(stack_path: str, stack_name: str):
                 if os.getenv("DS_HEADLESS") == "true":
                     raise RuntimeError(f"Deployment aborted due to container name conflict: {name}")
 
-                choice = questionary.confirm(f"Remove existing container to allow stack '{stack_name}' to start?", default=False).ask()
+                choice = safe_confirm(f"Remove existing container to allow stack '{stack_name}' to start?", default=False)
                 if choice:
                     write_log(f"Removing conflicting container: {name}", level="INFO")
                     subprocess.run(["docker", "rm", "-f", name], capture_output=True, env=get_clean_env())

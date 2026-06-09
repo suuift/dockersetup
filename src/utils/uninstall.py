@@ -5,6 +5,7 @@ import subprocess
 import questionary
 from rich.console import Console
 from src.utils.paths import get_clean_env
+from src.utils.logger import safe_confirm
 
 console = Console()
 
@@ -29,19 +30,19 @@ def main():
     console.print(f"Target Directory: {deploy_dir}", style="grey50")
     
     # 2. Prompts
-    confirm = questionary.confirm(
+    confirm = safe_confirm(
         "Are you sure you want to completely uninstall all services and stacks?", 
         default=False
-    ).ask()
+    )
     
     if not confirm:
         console.print("Uninstall cancelled.", style="yellow")
         sys.exit(0)
 
-    remove_volumes = questionary.confirm(
+    remove_volumes = safe_confirm(
         "Would you like to permanently delete Docker named volumes? (This destroys database/application state not saved to host mount folders)", 
         default=False
-    ).ask()
+    )
 
     # Backup env file for safety
     if os.path.exists(env_path):
@@ -82,10 +83,10 @@ def main():
             console.print(f" - {s}", style="yellow")
         
         console.print("\nIf you delete the configuration files now, these containers will become orphaned and running.")
-        proceed_with_cleanup = questionary.confirm(
+        proceed_with_cleanup = safe_confirm(
             "Force delete stack configuration folders anyway?", 
             default=False
-        ).ask()
+        )
 
     # 5. Directory cleanup
     if proceed_with_cleanup:

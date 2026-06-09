@@ -4,6 +4,7 @@ import time
 import subprocess
 from datetime import datetime
 from rich.console import Console
+import questionary
 from src.utils.paths import get_clean_env
 
 console = Console()
@@ -121,3 +122,18 @@ def invoke_external_command(command: str, description: str = "Executing command"
     except Exception as e:
         write_log(f"External Command Failed: {str(e)}", level="ERROR")
         raise e
+
+def safe_confirm(message: str, default: bool = True) -> bool:
+    """
+    Prompt the user with a Yes/No select list to force pressing Enter to confirm.
+    """
+    if os.getenv("DS_HEADLESS") == "true":
+        return default
+        
+    choices = ["Yes", "No"] if default else ["No", "Yes"]
+    choice = questionary.select(
+        message,
+        choices=choices,
+        default=choices[0]
+    ).ask()
+    return choice == "Yes"

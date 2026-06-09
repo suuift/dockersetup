@@ -6,7 +6,7 @@ import socket
 import re
 import questionary
 from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
-from src.utils.logger import write_log, console, write_step
+from src.utils.logger import write_log, console, write_step, safe_confirm
 from src.utils.state import get_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
 
@@ -131,7 +131,7 @@ def run_deploy_preflight() -> bool:
             if os.getenv("DS_HEADLESS") == "true":
                 write_log("Proceeding in headless/test mode despite port conflicts.", level="WARN")
             else:
-                choice = questionary.confirm("Would you like to proceed with the setup anyway?", default=False).ask()
+                choice = safe_confirm("Would you like to proceed with the setup anyway?", default=False)
                 if choice is None:
                     write_log("User aborted setup during port checks.", level="WARN")
                     sys.exit(1)
