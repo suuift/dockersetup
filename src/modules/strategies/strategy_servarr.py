@@ -2,7 +2,7 @@ import os
 import re
 from src.utils.logger import write_log, write_step
 
-def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, rest_invoker):
+def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, rest_invoker, tier="1"):
     """
     Handles authentication injection and cross-linking for Servarr applications (Sonarr, Radarr, etc.)
     """
@@ -25,12 +25,19 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                 try:
                     current_config = rest_invoker(api_url, method="GET", headers=headers)
                     if current_config:
-                        current_config["authenticationMethod"] = "Forms"
-                        current_config["username"] = http_user
-                        current_config["password"] = http_pass
+                        # Tier 1 = Minimal (no auth required), Tier 2 = Advanced (forms auth required)
+                        if tier == "1":
+                            current_config["authenticationMethod"] = "none"
+                            current_config["username"] = ""
+                            current_config["password"] = ""
+                        else:
+                            current_config["authenticationMethod"] = "forms"
+                            current_config["username"] = http_user
+                            current_config["password"] = http_pass
                         
                         rest_invoker(api_url, method="PUT", json_payload=current_config, headers=headers)
-                        results.append(f"Secured {app} with management credentials")
+                        auth_desc = "unsecured (no auth required)" if tier == "1" else "secured with credentials"
+                        results.append(f"Configured {app} as {auth_desc}")
                 except Exception as e:
                     write_log(f"Failed to inject auth for {app}: {str(e)}", level="WARN")
 

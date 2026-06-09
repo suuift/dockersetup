@@ -240,15 +240,16 @@ def auto_stitch_services() -> bool:
     
     # --- 3. Execute Strategies ---
     # We pass invoke_robust_rest_method to strategies to maintain the Smart Verify logic
+    tier = metadata.get("tier", "1")
     
     # A. Downloaders (Auth + PVR Links)
     config_results.extend(run_downloaders_strategy(
-        selected, keys, registry_list, http_user, http_pass, deploy_dir, invoke_robust_rest_method
+        selected, keys, registry_list, http_user, http_pass, deploy_dir, invoke_robust_rest_method, tier
     ))
 
     # B. Servarr Stack (Auth + Prowlarr Links)
     config_results.extend(run_servarr_strategy(
-        selected, keys, registry_list, http_user, http_pass, invoke_robust_rest_method
+        selected, keys, registry_list, http_user, http_pass, invoke_robust_rest_method, tier
     ))
 
     # C. Dashboards (Seerr Links)
