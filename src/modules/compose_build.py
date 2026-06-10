@@ -357,29 +357,46 @@ def build_compose_stacks() -> bool:
         # Write Homepage widgets.yaml
         widgets_file = os.path.join(hp_path, "widgets.yaml")
         if not os.path.exists(widgets_file) or os.getenv("TEST_MODE") != "true":
-            widgets_data = [
-                {"github": {"repository": "suuift/dockersetup"}}
-            ]
+            # Determine disk path
+            drive = os.path.splitdrive(deploy_dir)[0]
+            if drive:
+                disk_path = "/" + drive.replace(":", "")
+            else:
+                disk_path = "/"
+                
+            widgets_content = f"""---
+# For configuration options and examples, please see:
+# https://gethomepage.dev/en/configs/widgets
+
+- resources:
+    cpu: true
+    memory: true
+    disk: {disk_path}
+
+- search:
+    provider: google
+    target: _blank
+    
+- datetime:
+    text_size: xl
+    format:
+      dateStyle: short
+      timeStyle: short
+      hour12: true
+"""
             with open(widgets_file, "w", encoding="utf-8") as f:
-                yaml.dump(widgets_data, f)
+                f.write(widgets_content)
 
         # Write Homepage bookmarks.yaml
         bookmarks_file = os.path.join(hp_path, "bookmarks.yaml")
         if not os.path.exists(bookmarks_file) or os.getenv("TEST_MODE") != "true":
-            bookmarks_data = [
-                {
-                    "Developer": [
-                        {
-                            "Github": {
-                                "abbr": "GH",
-                                "href": "https://github.com/suuift/dockersetup"
-                            }
-                        }
-                    ]
-                }
-            ]
+            bookmarks_content = """- Developer:
+    - github.com/suuift/dockersetup:
+        - abbr: GH
+          href: https://github.com/suuift/dockersetup
+"""
             with open(bookmarks_file, "w", encoding="utf-8") as f:
-                yaml.dump(bookmarks_data, f)
+                f.write(bookmarks_content)
 
         # Write Homepage docker.yaml (Local Socket connection)
         docker_file = os.path.join(hp_path, "docker.yaml")

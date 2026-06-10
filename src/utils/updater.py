@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.17"
+VERSION = "1.5.18"
 
 def parse_version(v_str: str):
     """
@@ -186,6 +186,11 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
             os.environ.update(clean_env)
             os.execv(target_exe_path, [target_exe_path])
         else:
+            # Print cleanly formatted console separators to avoid overlapped terminal outputs
+            print("\n" + "="*60)
+            print("                RELAUNCHING MEDIA STACK MANAGER")
+            print("="*60 + "\n")
+            sys.stdout.flush()
             subprocess.Popen([target_exe_path], env=get_clean_env())
             sys.exit(0)
         
