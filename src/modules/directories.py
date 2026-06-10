@@ -71,6 +71,23 @@ def setup_directories() -> bool:
             except Exception as e:
                 raise PermissionError(f"Failed to create directory: {path}. Ensure you have write permissions. Error: {str(e)}")
 
+        # Enforce External authentication method for Servarr apps config.xml pre-creation
+        if clean_app in ["sonarr", "radarr", "lidarr"]:
+            config_file = os.path.join(path, "config.xml")
+            if not os.path.exists(config_file):
+                try:
+                    default_config = (
+                        "<Config>\n"
+                        "  <LogLevel>info</LogLevel>\n"
+                        "  <AuthenticationMethod>External</AuthenticationMethod>\n"
+                        "</Config>\n"
+                    )
+                    with open(config_file, "w", encoding="utf-8") as f:
+                        f.write(default_config)
+                    write_log(f"Pre-seeded config.xml with External auth for {clean_app}", level="DEBUG")
+                except Exception as e:
+                    write_log(f"Warning: Could not pre-seed config.xml for {clean_app}. Error: {str(e)}", level="WARN")
+
     # Create stacks directory for Dockge
     stacks_dir = resolve_path_slash(os.path.join(docker_dir, "stacks"))
     if not os.path.exists(stacks_dir):

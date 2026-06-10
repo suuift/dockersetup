@@ -380,7 +380,12 @@ def configure_environment() -> bool:
     lan_net = ""
 
     if "plex" in selected_services:
-        plex_claim = get_validated_input("Plex Claim Token (Optional, from https://www.plex.tv/claim)", "")
+        console.print("\n[IMPORTANT] A Plex Claim Token links your server to your Plex account.", style="cyan")
+        console.print("This is highly recommended to automate installation, configure Plex,", style="grey50")
+        console.print("and authenticate Tautulli properly on the first run.", style="grey50")
+        console.print("1. Visit https://www.plex.tv/claim in a browser.", style="grey50")
+        console.print("2. Copy the token (valid for 4 minutes).", style="grey50")
+        plex_claim = get_validated_input("Paste Plex Claim Token (leave blank to skip)", "")
 
     if "cloudflare-ddns" in selected_services or "npm plus (+goaccess)" in selected_services:
         base_domain = get_validated_input("Base Domain (e.g., example.com)", "local.host")

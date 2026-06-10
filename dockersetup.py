@@ -379,15 +379,29 @@ def main():
                         console.print("   Tautulli → Settings → Plex Media Server → Plex Auth Token.", style="grey50")
                     if "bazarr" in selected_svcs:
                         console.print("\n6. Bazarr Subtitle Setup:", style="yellow")
-                        console.print("   Bazarr requires manual configuration at http://localhost:6767")
-                        console.print("   Connect it to Sonarr (port 8989) and Radarr (port 7878) under", style="grey50")
-                        console.print("   Settings → Sonarr / Settings → Radarr using their API keys.", style="grey50")
+                        console.print("   Bazarr is auto-linked to Radarr/Sonarr, but subtitles providers require configuration.")
+                        console.print("   Access http://localhost:6767 → Settings → Languages/Providers to set up.", style="grey50")
                     if "seerr" in selected_svcs:
-                        console.print("\n7. Seerr API Key (Required for Homepage Dashboard):", style="yellow")
-                        console.print("   Seerr stores its API key in SQLite and must be retrieved manually.")
-                        console.print("   1. Open http://localhost:5055 → Settings → General.")
-                        console.print("   2. Copy the API Key and paste it into the .env file as SEERR_API_KEY=XXX.")
-                        console.print("   3. Restart the homepage container to load the key.", style="grey50")
+                        console.print("\n7. Seerr Setup & API Key (Required for Dashboard):", style="yellow")
+                        console.print("   Seerr stores its API key in SQLite and must be configured manually.")
+                        console.print("   1. Open http://localhost:5055 and run first setup (connect Plex/Jellyfin).")
+                        console.print("   2. Go to Settings → Services → Add Radarr (radarr:7878) & Sonarr (sonarr:8989)")
+                        console.print("      using their API keys (shown in your .env).")
+                        console.print("   3. Go to Settings → General, copy Seerr's API Key and paste it into")
+                        console.print("      your main .env as SEERR_API_KEY=XXX, then restart the homepage container.", style="grey50")
+                    if "sabnzbd" in selected_svcs:
+                        console.print("\n8. SABnzbd Server Setup (USENET):", style="yellow")
+                        console.print("   SABnzbd is up at http://localhost:8080. You need to configure a news provider:")
+                        console.print("   1. We highly recommend using [link=https://newsgroup.ninja]Newsgroup.ninja[/link] for fast USENET access.")
+                        console.print("   2. Walkthrough: Settings → Servers → Add Active Server using host 'news.newsgroup.ninja',")
+                        console.print("      SSL port '563', and your Ninja username/password.", style="grey50")
+                    if "prowlarr" in selected_svcs:
+                        console.print("\n9. Prowlarr Indexer Setup (Usenet Search):", style="yellow")
+                        console.print("   Prowlarr is up at http://localhost:9696. We auto-seeded public indexers, but you")
+                        console.print("   should add premium USENET indexers for full search coverage:")
+                        console.print("   1. We recommend register at [link=https://nzbgeek.info]NZBGeek[/link] or [link=https://nzbplanet.net]NZBPlanet[/link].")
+                        console.print("   2. Walkthrough: Indexers → Add Newznab Indexer → Select NZBGeek/NZBPlanet,")
+                        console.print("      and paste your API key. Prowlarr will auto-sync it to Sonarr/Radarr.", style="grey50")
 
                     invoke_token_wizard(d_dir)
                     exit_script = True

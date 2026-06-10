@@ -233,6 +233,9 @@ def build_compose_stacks() -> bool:
                             port = match_regex_port.group(1)
 
                     clean_key = svc_key.split(" ")[0]
+                    if not port or port == "0" or (reg_entry and reg_entry.type == "none"):
+                        continue
+
                     hp_output += f"    - {svc_key}:\n"
                     hp_output += f"        icon: {clean_key}.png\n"
 
@@ -253,6 +256,9 @@ def build_compose_stacks() -> bool:
 
                         if "npm plus (+goaccess)" in selected_services and base_domain != "local.host":
                             url = f"https://{alias.split(' ')[0]}.{base_domain}"
+
+                        if clean_key == "plex":
+                            url += "/web"
 
                         # Get a clean description from the registry entry type
                         reg = next((e for e in registry_list if e.key == svc_key), None)

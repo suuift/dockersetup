@@ -56,18 +56,11 @@ Follow the interactive menus to select your installation tier, configure credent
 
 ## Key Features
 
-*   **Cross-Platform Portability:** Runs seamlessly on both Windows and Linux environments.
-*   **Stateless Builder Architecture:** The project root remains clean. All configurations, state files, and deployment logic are written directly to your chosen target directory.
-*   **Self-Healing Updates:** Every time you launch the setup script, it checks for updates from the repository. Supports seamless, rename-and-replace binary updates with built-in SSL validation protection using `certifi`.
-*   **Intelligent Migration:** Detects existing deployments and offers one-click Template Upgrades to apply the latest security and performance optimizations to your stacks without touching your data.
-*   **Permissions Hardening:** Automatically detects host users via `SUDO_UID` and `SUDO_GID` on Linux. Corrects and secures directory ownership recursively to prevent container write errors—specifically optimized for immutable Linux distributions (Bazzite, SteamOS, Fedora Silverblue).
-*   **Multi-Stack Deployment:** Automatically splits services into logical groups (Core, Media-PVR, Downloaders, etc.) for isolation and management via Dockge.
-*   **Zero-Touch Authentication:** Automatically secures 11+ application web interfaces (Sonarr, Radarr, qBittorrent, etc.) using your custom management credentials.
-*   **Visual Packaging & Custom Branding:** Bundled with a custom Python-Docker fusion binary icon and embedded clean branding graphics.
-*   **Rich Dashboards:** Generates a professional Homepage dashboard pre-configured with direct repository bookmarks (including automated Windows debloat utilities), local storage mapping, docker socket access, and live data widgets with inline environment variables.
-*   **Advanced Stitching:** Automatically links services (e.g., Prowlarr to PVRs, FlareSolverr to Prowlarr, Seerr to Radarr) during installation.
-*   **Concurrent Image Downloads:** Employs a thread pool to download service images concurrently, significantly speeding up deployment.
-*   **CI/CD Release Automation:** Incorporates automated semantic versioning, changelog updates, and multi-OS PyInstaller compilation triggers using GitHub Actions.
+*   **Stateless Builder Architecture:** Keeps the code repository clean. All configurations, state metadata, and Docker Compose directories write directly to your target directory.
+*   **Fully Automated Stitching & Stitch-Config:** Automatically links download clients to PVRs, Prowlarr to indexers, Bazarr to subtitles, and connects Radarr/Sonarr import lists (Plex watchlists, StevenLu popular list) and quality renaming configs out of the box.
+*   **Zero-Touch Authentication Integration:** Automatically configures internal service configuration files to use native authentication or secure external reverse proxies (like Authelia/Nginx Proxy Manager).
+*   **Self-Healing Binary Updates:** STANDALONE binaries automatically verify, pull, swap, and relaunch dynamically on update checks, keeping deployments seamlessly aligned with repository updates.
+*   **Visual Dashboards (Homepage):** Auto-generates a clean Homepage config containing dynamic container API keys, local disk mounts, and targeted bookmarks (like Titus winutil debloat).
 
 ---
 

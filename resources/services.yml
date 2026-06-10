@@ -23,7 +23,6 @@ MINIMAL:
   - seerr | 5055 | requests | Unified request management and media discovery dashboard for your Plex or Jellyfin ecosystem.
   - recyclarr | 0 | none | Syncs recommended settings from TRaSH Guides to Sonarr and Radarr to ensure your media quality profiles are always optimal.
   - plex | 32400 | plex | Premium media server that organizes your collections and streams them to any device, featuring rich metadata and remote access.
-  - jellyfin | 8096 | jellyfin | Free, open-source media system that provides total control over managing and streaming your media with no strings attached.
   - watchtower | 0 | none | Automates Docker base image updates by watching your running containers and restarting them when a new image version is available.
   - docker-prune | 0 | none | Utility that automatically cleans up unused Docker images, containers, and networks daily to keep your system lean.
   - tautulli | 8181 | stats | Comprehensive monitoring and analytics tool for Plex that provides detailed statistics on watch history and user activity.
@@ -62,6 +61,7 @@ TOOLS:
   - hkserver | 3838 | none | Dedicated server for Hollow Knight Multiplayer, allowing for cooperative play in a shared world.
   - kopia | 28913 | backup | Fast and secure open-source backup tool that creates encrypted, deduplicated snapshots of your data.
   - authelia | 9091 | auth | Open-source authentication server providing 2FA and SSO to secure all your services behind a single login portal.
+  - jellyfin | 8096 | jellyfin | Free, open-source media system that provides total control over managing and streaming your media with no strings attached.
   - immich | 2283 | photos | High-performance self-hosted solution for backing up and managing your personal photo and video collections.
   - audiobookshelf | 13378 | books | Self-hosted audiobook and podcast server with a beautiful web UI and full-featured mobile apps.
   - paperless | 8010 | docs | Document management system that handles OCR and indexing to transform physical documents into a searchable online archive.

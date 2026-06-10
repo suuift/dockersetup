@@ -18,6 +18,7 @@ from src.utils.yaml_parser import get_yaml_content, get_registry_list
 from src.modules.strategies.strategy_servarr import run_servarr_strategy
 from src.modules.strategies.strategy_downloaders import run_downloaders_strategy
 from src.modules.strategies.strategy_dashboards import run_dashboards_strategy
+from src.modules.strategies.strategy_bazarr import run_bazarr_strategy
 
 def test_port(host: str, port: int, timeout: int = 2) -> bool:
     """
@@ -229,8 +230,28 @@ def auto_stitch_services() -> bool:
                         keys[svc] = key
                         write_log(f"Extracted {svc} API Key.", level="INFO")
                         
-                        env_key = f"{svc}_API_KEY".upper().replace("-", "_")
-                        set_env_var(env_key, key, file_path=env_path)
+                    # Tautulli config seeding if Plex is deployed
+                    if svc == "tautulli":
+                        plex_token = os.getenv("PLEX_TOKEN")
+                        if plex_token and plex_token.strip():
+                            config_file = os.path.join(deploy_dir, "appdata", "tautulli", "config.ini")
+                            if os.path.exists(config_file):
+                                try:
+                                    config = configparser.ConfigParser(strict=False, empty_lines_in_values=False)
+                                    config.read(config_file, encoding="utf-8")
+                                    if not config.has_section("General"):
+                                        config.add_section("General")
+                                    config.set("General", "pms_url", "http://plex:32400")
+                                    config.set("General", "pms_token", plex_token.strip())
+                                    with open(config_file, "w", encoding="utf-8") as f:
+                                        config.write(f)
+                                    write_log("Successfully pre-seeded Tautulli config.ini with Plex token and URL.", level="INFO")
+                                    config_results.append("Configured Tautulli connection to Plex")
+                                except Exception as e:
+                                    write_log(f"Warning: Failed to seed Tautulli config.ini: {str(e)}", level="WARN")
+
+                    env_key = f"{svc}_API_KEY".upper().replace("-", "_")
+                    set_env_var(env_key, key, file_path=env_path)
 
     # --- 2. Load Management Credentials ---
     http_user = "admin"
@@ -269,6 +290,11 @@ def auto_stitch_services() -> bool:
 
     # C. Dashboards (Seerr Links)
     config_results.extend(run_dashboards_strategy(
+        selected, keys, registry_list, invoke_robust_rest_method
+    ))
+
+    # D. Subtitles (Bazarr Links)
+    config_results.extend(run_bazarr_strategy(
         selected, keys, registry_list, invoke_robust_rest_method
     ))
 
