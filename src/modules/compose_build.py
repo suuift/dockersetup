@@ -284,14 +284,17 @@ def build_compose_stacks() -> bool:
                                 hp_env_mappings.append("      - HOMEPAGE_VAR_HTTP_PASSWORD=${HTTP_PASSWORD}")
                             else:
                                 api_key_var = f"{env_key_base}_API_KEY"
+                                # Jellyfin widget uses 'apiKey', all others use 'key'
+                                key_field = "key"
                                 if w_type == "plex":
                                     api_key_var = "PLEX_TOKEN"
                                 elif w_type == "jellyfin":
                                     api_key_var = "JELLYFIN_KEY"
+                                    key_field = "apiKey"
                                 elif w_type == "portainer":
                                     api_key_var = "PORTAINER_KEY"
 
-                                hp_output += f"          key: {{{{HOMEPAGE_VAR_{api_key_var}}}}}\n"
+                                hp_output += f"          {key_field}: {{{{HOMEPAGE_VAR_{api_key_var}}}}}\n"
                                 hp_env_mappings.append(f"      - HOMEPAGE_VAR_{api_key_var}=${api_key_var}")
                     else:
                         hp_output += "        description: Background Service\n"

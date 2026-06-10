@@ -370,6 +370,20 @@ def main():
                     else:
                         console.print("   [!] No automated configurations were performed.", style="grey50")
 
+                    # Tautulli/Plex token note
+                    selected_svcs = metadata.get("selected_services", [])
+                    if "tautulli" in selected_svcs or "plex" in selected_svcs:
+                        console.print("\n5. Plex Token (Required for Tautulli):", style="yellow")
+                        console.print("   Tautulli needs your permanent Plex token (not the claim token).")
+                        console.print("   To get it: open Plex → Settings → Troubleshooting → 'Get Online Media Info'")
+                        console.print("   Copy the token from the URL (?X-Plex-Token=XXXXX) and paste it into")
+                        console.print("   Tautulli → Settings → Plex Media Server → Plex Auth Token.", style="grey50")
+                    if "bazarr" in selected_svcs:
+                        console.print("\n6. Bazarr Subtitle Setup:", style="yellow")
+                        console.print("   Bazarr requires manual configuration at http://localhost:6767")
+                        console.print("   Connect it to Sonarr (port 8989) and Radarr (port 7878) under", style="grey50")
+                        console.print("   Settings → Sonarr / Settings → Radarr using their API keys.", style="grey50")
+
                     invoke_token_wizard(d_dir)
                     exit_script = True
 
