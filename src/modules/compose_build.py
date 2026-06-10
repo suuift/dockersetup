@@ -278,8 +278,10 @@ def build_compose_stacks() -> bool:
                             env_key_base = svc_key.upper().replace("-", "_").replace(" ", "_")
 
                             if w_type == "qbittorrent":
-                                hp_output += "          username: ${HTTP_USERNAME}\n"
-                                hp_output += "          password: ${HTTP_PASSWORD}\n"
+                                hp_output += "          username: {{HOMEPAGE_VAR_HTTP_USERNAME}}\n"
+                                hp_output += "          password: {{HOMEPAGE_VAR_HTTP_PASSWORD}}\n"
+                                hp_env_mappings.append("      - HOMEPAGE_VAR_HTTP_USERNAME=${HTTP_USERNAME}")
+                                hp_env_mappings.append("      - HOMEPAGE_VAR_HTTP_PASSWORD=${HTTP_PASSWORD}")
                             else:
                                 api_key_var = f"{env_key_base}_API_KEY"
                                 # Jellyfin widget uses 'apiKey', all others use 'key'
@@ -292,7 +294,8 @@ def build_compose_stacks() -> bool:
                                 elif w_type == "portainer":
                                     api_key_var = "PORTAINER_KEY"
 
-                                hp_output += f"          {key_field}: ${api_key_var}\n"
+                                hp_output += f"          {key_field}: {{{{HOMEPAGE_VAR_{api_key_var}}}}}\n"
+                                hp_env_mappings.append(f"      - HOMEPAGE_VAR_{api_key_var}=${api_key_var}")
                     else:
                         hp_output += "        description: Background Service\n"
                 hp_output += "\n"
@@ -408,10 +411,16 @@ def build_compose_stacks() -> bool:
                 }
             }
             with open(docker_file, "w", encoding="utf-8") as f:
-                yaml.dump(docker_data, f)
-
-
-
+                yaml.dump(docker_data, f)        # Update the Homepage Compose with dynamic mappings
+        hp_compose_path = os.path.join(stacks_dir, "maintenance", "docker-compose.yml")
+        if os.path.exists(hp_compose_path):
+            unique_mappings = sorted(list(set(hp_env_mappings)))
+            mapping_str = "\n".join(unique_mappings)
+            with open(hp_compose_path, "r", encoding="utf-8") as f:
+                hp_compose = f.read()
+            new_hp_compose = hp_compose.replace("{{HOMEPAGE_MAPPINGS}}", mapping_str)
+            with open(hp_compose_path, "w", encoding="utf-8") as f:
+                f.write(new_hp_compose)
     # Finalize State
     metadata["generated_stacks"] = generated_stacks
     set_metadata(metadata)

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dockersetup"
-version = "1.5.20"
+version = "1.5.21"
 description = "Cross-platform python-based Docker media stack setup script"
 authors = ["suuift <suuift@gmail.com>"]
 readme = "README.md"

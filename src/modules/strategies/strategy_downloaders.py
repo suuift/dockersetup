@@ -34,18 +34,17 @@ def run_downloaders_strategy(selected, keys, registry_list, http_user, http_pass
                     new_ini = re.sub(r"^username\s*=.*", f"username = {http_user}", ini_content, flags=re.MULTILINE)
                     new_ini = re.sub(r"^password\s*=.*", f"password = {http_pass}", new_ini, flags=re.MULTILINE)
                     
-                    # Ensure host_whitelist includes sabnzbd and localhost
+                    # Ensure host_whitelist includes sabnzbd, localhost, 127.0.0.1, and subnets
+                    whitelist_value = "host_whitelist = sabnzbd, localhost, 127.0.0.1, 192.168.90.11"
                     if "host_whitelist" in new_ini:
-                        # Find the host_whitelist line and ensure sabnzbd, localhost are in it or replace it
-                        # For simplicity, let's inject it into host_whitelist or replace the line
-                        new_ini = re.sub(r"^host_whitelist\s*=.*", "host_whitelist = sabnzbd, localhost", new_ini, flags=re.MULTILINE)
+                        new_ini = re.sub(r"^host_whitelist\s*=.*", whitelist_value, new_ini, flags=re.MULTILINE)
                     else:
                         # Append it under [misc] section if possible, or just append to end of file if section not found easily
                         # Usually it is under [misc] section. Let's find [misc] and insert it
                         if "[misc]" in new_ini:
-                            new_ini = new_ini.replace("[misc]", "[misc]\nhost_whitelist = sabnzbd, localhost")
+                            new_ini = new_ini.replace("[misc]", f"[misc]\n{whitelist_value}")
                         else:
-                            new_ini += "\nhost_whitelist = sabnzbd, localhost\n"
+                            new_ini += f"\n{whitelist_value}\n"
                     
                     with open(sab_ini, "w", encoding="utf-8") as f:
                         f.write(new_ini)

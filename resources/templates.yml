@@ -291,6 +291,7 @@ homepage: |
       - $DRIVEPOOL:/h
     environment:
       <<: *default-tz-puid-pgid
+{{HOMEPAGE_MAPPINGS}}
 
 # --- ADVANCED ADD-ONS ---
 portainer: |
