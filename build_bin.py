@@ -61,7 +61,7 @@ def compile_inno_setup(project_root: str):
     print(" ".join(cmd))
     try:
         subprocess.run(cmd, check=True)
-        print("[SUCCESS] Inno Setup installer compiled: dist/dockersetup-setup-x64.exe")
+        print("[SUCCESS] Inno Setup installer compiled: dist/dockersetupinstaller.exe")
         return True
     except Exception as e:
         print(f"[ERROR] Inno Setup compilation failed: {str(e)}")
@@ -152,7 +152,7 @@ def main():
     print("\n" + "="*45)
     print("BUILD SUMMARY:")
     print(f" Windows Executable (.exe):        {'Check dist/dockersetup.exe' if os.path.exists('dist/dockersetup.exe') else 'Not Built'}")
-    print(f" Windows Setup Installer (.exe):   {'Check dist/dockersetup-setup-x64.exe' if os.path.exists('dist/dockersetup-setup-x64.exe') else 'Not Built'}")
+    print(f" Windows Setup Installer (.exe):   {'Check dist/dockersetupinstaller.exe' if os.path.exists('dist/dockersetupinstaller.exe') else 'Not Built'}")
     print(f" Linux Binary (ELF):               {'Check dist/dockersetup' if os.path.exists('dist/dockersetup') else 'Not Built'}")
     print("="*45)
 

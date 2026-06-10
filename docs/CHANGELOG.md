@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.29] - 2026-06-10
+### Fixed
+- **[CI/CD]** Fixed the missing executable icon on release binaries by passing the `--icon` parameter to the PyInstaller task in GitHub Actions.
+- **[Installer]** Enabled automatic remote compilation and release uploading of the Windows `dockersetupinstaller.exe` setup wrapper by leveraging pre-installed Inno Setup on GitHub Actions runners.
+- **[Installer]** Renamed output installer binary to `dockersetupinstaller.exe` for streamlined user distribution.
+
 ## [1.5.28] - 2026-06-10
 ### Added
 - **[Installer]** Added Inno Setup compiler script configuration for Windows user-writable Local AppData packaging.
