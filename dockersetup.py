@@ -382,6 +382,12 @@ def main():
                         console.print("   Bazarr requires manual configuration at http://localhost:6767")
                         console.print("   Connect it to Sonarr (port 8989) and Radarr (port 7878) under", style="grey50")
                         console.print("   Settings → Sonarr / Settings → Radarr using their API keys.", style="grey50")
+                    if "seerr" in selected_svcs:
+                        console.print("\n7. Seerr API Key (Required for Homepage Dashboard):", style="yellow")
+                        console.print("   Seerr stores its API key in SQLite and must be retrieved manually.")
+                        console.print("   1. Open http://localhost:5055 → Settings → General.")
+                        console.print("   2. Copy the API Key and paste it into the .env file as SEERR_API_KEY=XXX.")
+                        console.print("   3. Restart the homepage container to load the key.", style="grey50")
 
                     invoke_token_wizard(d_dir)
                     exit_script = True

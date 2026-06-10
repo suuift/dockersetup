@@ -269,7 +269,7 @@ def build_compose_stacks() -> bool:
                         if w_key == "uptimekuma":
                             w_key = "uptime-kuma"
 
-                        if w_key in supported_widgets:
+                        if w_key in supported_widgets and url:
                             w_type = supported_widgets[w_key]
                             hp_output += "        widget:\n"
                             hp_output += f"          type: {w_type}\n"
