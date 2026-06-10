@@ -35,6 +35,38 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
         print(f"[ERROR] Local build failed: {str(e)}")
         return False
 
+def compile_inno_setup(project_root: str):
+    """
+    Compiles the Inno Setup script into a setup installer executable.
+    """
+    print("\n--- Compiling Windows Setup Installer with Inno Setup ---")
+    iscc_path = shutil.which("iscc")
+    if not iscc_path:
+        # Check standard paths
+        standard_path = r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+        if os.path.exists(standard_path):
+            iscc_path = standard_path
+            
+    if not iscc_path:
+        print("[WARN] Inno Setup compiler (ISCC.exe) not found on PATH or in standard paths. Skipping installer creation.")
+        return False
+        
+    iss_file = os.path.join(project_root, "resources", "installer.iss")
+    if not os.path.exists(iss_file):
+        print(f"[ERROR] Inno Setup script not found at: {iss_file}")
+        return False
+        
+    cmd = [iscc_path, iss_file]
+    print("Executing Inno Setup compilation:")
+    print(" ".join(cmd))
+    try:
+        subprocess.run(cmd, check=True)
+        print("[SUCCESS] Inno Setup installer compiled: dist/dockersetup-setup-x64.exe")
+        return True
+    except Exception as e:
+        print(f"[ERROR] Inno Setup compilation failed: {str(e)}")
+        return False
+
 def run_docker_linux_build(project_root: str):
     """
     Uses Docker to compile the Linux binary if running on a Windows host.
@@ -75,6 +107,12 @@ def run_docker_linux_build(project_root: str):
     
     try:
         subprocess.run(docker_cmd, check=True)
+        # Copy install.sh to dist directory
+        sh_src = os.path.join(project_root, "resources", "install.sh")
+        sh_dst = os.path.join(project_root, "dist", "install.sh")
+        if os.path.exists(sh_src):
+            shutil.copy(sh_src, sh_dst)
+            print("[INFO] Copied install.sh to dist/install.sh")
         print("[SUCCESS] Docker Linux build finished: dist/dockersetup (ELF binary)")
         return True
     except Exception as e:
@@ -98,6 +136,9 @@ def main():
     
     # 3. Handle cross-compilation paths
     if host_os == "Windows":
+        # Compile Inno Setup installer if local build succeeded
+        if local_success:
+            compile_inno_setup(project_root)
         # On Windows host: Build Windows locally, use Docker to compile the Linux binary
         docker_success = run_docker_linux_build(project_root)
         
@@ -110,8 +151,9 @@ def main():
 
     print("\n" + "="*45)
     print("BUILD SUMMARY:")
-    print(f" Windows Executable (.exe): {'Check dist/dockersetup.exe' if os.path.exists('dist/dockersetup.exe') else 'Not Built'}")
-    print(f" Linux Binary (ELF):        {'Check dist/dockersetup' if os.path.exists('dist/dockersetup') else 'Not Built'}")
+    print(f" Windows Executable (.exe):        {'Check dist/dockersetup.exe' if os.path.exists('dist/dockersetup.exe') else 'Not Built'}")
+    print(f" Windows Setup Installer (.exe):   {'Check dist/dockersetup-setup-x64.exe' if os.path.exists('dist/dockersetup-setup-x64.exe') else 'Not Built'}")
+    print(f" Linux Binary (ELF):               {'Check dist/dockersetup' if os.path.exists('dist/dockersetup') else 'Not Built'}")
     print("="*45)
 
 if __name__ == "__main__":
