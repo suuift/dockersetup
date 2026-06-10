@@ -379,13 +379,31 @@ def configure_environment() -> bool:
     vpn_pass = ""
     lan_net = ""
 
+    # Helper method for browser integration with failsafe
+    def launch_browser_safely(url: str):
+        if os.getenv("DS_HEADLESS") == "true":
+            return
+        
+        launch = safe_confirm(f"Would you like to open '{url}' in your web browser now?", default=True)
+        if launch:
+            try:
+                import webbrowser
+                webbrowser.open(url)
+                console.print(f"[OK] Opened {url} in your browser.", style="green")
+            except Exception as e:
+                write_log(f"Failed to launch browser automatically: {str(e)}", level="WARN")
+                console.print(f"[!] Please open this URL manually: {url}", style="cyan")
+
     if "plex" in selected_services:
         console.print("\n[IMPORTANT] A Plex Claim Token links your server to your Plex account.", style="cyan")
         console.print("This is highly recommended to automate installation, configure Plex,", style="grey50")
         console.print("and authenticate Tautulli properly on the first run.", style="grey50")
-        console.print("1. Visit https://www.plex.tv/claim in a browser.", style="grey50")
-        console.print("2. Copy the token (valid for 4 minutes).", style="grey50")
-        plex_claim = get_validated_input("Paste Plex Claim Token (leave blank to skip)", "")
+        
+        launch_browser_safely("https://www.plex.tv/claim")
+        
+        plex_claim = get_validated_input("Paste Plex Claim Token (leave blank to skip / configure manually later)", "")
+        if not plex_claim:
+            write_log("Plex Claim Token skipped. You will need to sign in to your Plex server manually.", level="WARN")
 
     if "cloudflare-ddns" in selected_services or "npm plus (+goaccess)" in selected_services:
         base_domain = get_validated_input("Base Domain (e.g., example.com)", "local.host")
@@ -395,7 +413,14 @@ def configure_environment() -> bool:
         cf_domains = get_validated_input("Cloudflare Domains (comma-separated)", "")
 
     if "tailscale" in selected_services:
-        ts_key = get_multiline_input("Tailscale Auth Key (Optional)", "")
+        console.print("\n[IMPORTANT] Tailscale requires an Auth Key to register this node.", style="cyan")
+        console.print("To generate one: Settings -> Keys -> Generate Auth Key (check 'reusable').", style="grey50")
+        
+        launch_browser_safely("https://login.tailscale.com/admin/settings/keys")
+        
+        ts_key = get_multiline_input("Tailscale Auth Key (leave blank to skip / authorize manually later)", "")
+        if not ts_key:
+            write_log("Tailscale Auth Key skipped. You must run 'tailscale up' inside the container manually to authorize.", level="WARN")
 
     if "qbittorrent-vpn" in selected_services:
         console.print("\n--- VPN Configuration ---", style="cyan")

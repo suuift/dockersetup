@@ -77,17 +77,37 @@ def write_log(message: str, level: str = "INFO", clear: bool = False):
 def write_step(message: str, level: str = "INFO"):
     write_log(f">> {message}", level=level)
 
-def invoke_external_command(command: str, description: str = "Executing command", cwd: str = None):
-    write_log(f"{description}: {command}", level="TRACE")
-    prefix = "    | "
+def invoke_external_command(command, description: str = "Executing command", cwd: str = None):
+    import shlex
+    import platform
     
-    # Run shell execution on all OSes to handle single command string correctly
-    use_shell = True
+    # Secure command execution: support both list-based command representation and strings
+    if isinstance(command, list):
+        cmd_list = command
+        cmd_str_for_log = " ".join(command)
+        use_shell = False
+    else:
+        cmd_str_for_log = command
+        # shlex.split on POSIX systems safely handles string parameters/quoting
+        if platform.system() != "Windows":
+            try:
+                cmd_list = shlex.split(command)
+                use_shell = False
+            except Exception:
+                cmd_list = command
+                use_shell = True
+        else:
+            # On Windows, list split is less reliable for cmd/powershell execution. Use shell for raw strings.
+            cmd_list = command
+            use_shell = True
+
+    write_log(f"{description}: {cmd_str_for_log}", level="TRACE")
+    prefix = "    | "
     
     try:
         # Stream output line-by-line to prevent subprocess pipe deadlock
         process = subprocess.Popen(
-            command,
+            cmd_list,
             shell=use_shell,
             cwd=cwd,
             stdout=subprocess.PIPE,

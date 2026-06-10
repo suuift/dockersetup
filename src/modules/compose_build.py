@@ -171,6 +171,52 @@ def build_compose_stacks() -> bool:
                 if svc not in db_helpers:
                     homepage_services.append({"Name": svc, "Stack": stack_name})
 
+    # --- PHASE 5: NPM + AUTHELIA COMPANION CONFIG ---
+    if "authelia" in selected_services and "npm plus (+goaccess)" in selected_services:
+        write_log("Configuring NPM & Authelia Companion forward-auth configs...")
+        npm_nginx_path = os.path.join(deploy_dir, "appdata", "npm", "config", "nginx")
+        os.makedirs(npm_nginx_path, exist_ok=True)
+        
+        # Write reusable location block for forward auth
+        authelia_conf_content = """# Reusable Authelia Forward Auth configuration block
+# Include this in your Nginx Proxy Manager Proxy Host -> Custom Configuration box:
+# include /config/nginx/authelia-auth.conf;
+
+auth_request /authelia;
+error_page 401 = @clean_auth_demanded;
+
+location /authelia {
+    internal;
+    set $upstream_authelia http://authelia:9091/api/verify;
+    proxy_pass $upstream_authelia;
+    
+    proxy_set_header X-Original-URI $request_uri;
+    proxy_set_header X-Original-Method $request_method;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $http_host;
+    proxy_set_header X-Forwarded-Uri $request_uri;
+    proxy_set_header X-Forwarded-Ssl on;
+    proxy_set_header Connection "";
+    
+    # Do not buffer verification requests
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+}
+
+location @clean_auth_demanded {
+    # Replace auth.local.host with your public Authelia domain if routing externally
+    return 302 https://$host/authelia/?rd=$scheme://$http_host$request_uri;
+}
+"""
+        try:
+            with open(os.path.join(npm_nginx_path, "authelia-auth.conf"), "w", encoding="utf-8") as f:
+                f.write(authelia_conf_content)
+            write_log("Successfully wrote Authelia NPM helper config to appdata/npm/config/nginx/authelia-auth.conf", level="INFO")
+        except Exception as e:
+            write_log(f"Warning: Failed to write Authelia auth config to NPM: {str(e)}", level="WARN")
+
     # --- HOMEPAGE GENERATOR ---
     if "homepage" in selected_services:
         write_log("Generating Homepage services configuration...")
@@ -337,8 +383,14 @@ def build_compose_stacks() -> bool:
         if "fullWidth" not in settings_data:
             settings_data["fullWidth"] = True
         
-        # Determine strict priority order for top rows
-        priority_order = ["Media Server", "Media PVR", "Downloaders", "Maintenance"]
+        # Determine strict priority order for top rows dynamically from services.yml stack groups
+        priority_order = []
+        if "STACK_GROUPS" in master_registry:
+            for group in master_registry["STACK_GROUPS"]:
+                priority_order.append(make_friendly_name(group.name))
+        else:
+            priority_order = ["Media Server", "Media PVR", "Downloaders", "Maintenance"]
+
         ordered_groups = []
         
         # 1. Add priority groups if active

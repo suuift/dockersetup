@@ -22,9 +22,51 @@ def run_downloaders_strategy(selected, keys, registry_list, http_user, http_pass
         elif tier == "1":
             write_log("Skipping SABnzbd credentials injection for minimal installation.", level="DEBUG")
             results.append("SABnzbd configured unauthenticated")
-        else:
-            write_step("Injecting Authentication for SABnzbd...")
+            # Prompts user for Usenet provider credentials interactively (automated helper)
+            import questionary
+            from src.utils.logger import safe_confirm, console
             sab_ini = os.path.join(deploy_dir, "appdata", "sabnzbd", "config", "sabnzbd.ini")
+            
+            # Seed default ini structure if missing so we can search/replace
+            if not os.path.exists(sab_ini):
+                os.makedirs(os.path.dirname(sab_ini), exist_ok=True)
+                default_ini = "[misc]\nusername =\npassword =\n[servers]\n"
+                with open(sab_ini, "w", encoding="utf-8") as f:
+                    f.write(default_ini)
+
+            if os.getenv("DS_HEADLESS") != "true" and safe_confirm("\nWould you like to configure your USENET news server details now?", default=True):
+                host = questionary.text("Enter USENET Server Host (e.g. news.newsgroup.ninja):").ask()
+                if host and host.strip():
+                    port = questionary.text("Enter Port (e.g. 563 for SSL, 119 for non-SSL):", default="563").ask()
+                    username = questionary.text("Enter Newsgroup Username:").ask()
+                    password = questionary.password("Enter Newsgroup Password:").ask()
+                    
+                    server_section = f"""
+[[{host}]]
+name = {host}
+host = {host}
+port = {port}
+username = {username}
+password = {password}
+connections = 20
+ssl = 1
+ssl_verify = 2
+enable = 1
+"""
+                    try:
+                        with open(sab_ini, "r", encoding="utf-8") as f:
+                            content = f.read()
+                        if "[servers]" in content:
+                            content = content.replace("[servers]", f"[servers]\n{server_section}")
+                        else:
+                            content += f"\n[servers]\n{server_section}"
+                        with open(sab_ini, "w", encoding="utf-8") as f:
+                            f.write(content)
+                        results.append("Configured primary USENET Server connection in SABnzbd")
+                    except Exception as e:
+                        write_log(f"Failed to pre-seed USENET server configuration: {str(e)}", level="WARN")
+
+            write_step("Injecting Authentication for SABnzbd...")
             if os.path.exists(sab_ini):
                 try:
                     with open(sab_ini, "r", encoding="utf-8") as f:

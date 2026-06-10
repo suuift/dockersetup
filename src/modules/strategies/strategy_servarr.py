@@ -143,15 +143,15 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                         list_url = f"{base_url}/importlist"
                         list_payload = {
                             "name": "Plex Watchlist",
-                            "enableAuto": true,
-                            "enabled": true,
-                            "shouldMonitor": true,
+                            "enableAuto": True,
+                            "enabled": True,
+                            "shouldMonitor": True,
                             "listType": "plex",
                             "implementation": "PlexWatchlistImport",
                             "configContract": "PlexWatchlistSettings",
                             "qualityProfileId": 1,
                             "rootFolderPath": "/tv" if app == "sonarr" else "/movies",
-                            "searchOnAdd": true,
+                            "searchOnAdd": True,
                             "fields": [
                                 {"name": "plexToken", "value": plex_token.strip()},
                                 {"name": "syncInterval", "value": 180} # 3 hours (180 minutes)
@@ -172,15 +172,15 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
                         list_url = f"{base_url}/importlist"
                         stevenlu_payload = {
                             "name": "StevenLu List",
-                            "enableAuto": true,
-                            "enabled": true,
-                            "shouldMonitor": true,
+                            "enableAuto": True,
+                            "enabled": True,
+                            "shouldMonitor": True,
                             "listType": "popular",
                             "implementation": "StevenLuImport",
                             "configContract": "StevenLuSettings",
                             "qualityProfileId": 1,
                             "rootFolderPath": "/movies",
-                            "searchOnAdd": false,
+                            "searchOnAdd": False,
                             "minimumAvailability": "announced",
                             "fields": [
                                 {"name": "baseUrl", "value": "https://api.radarr.video/v1/ma/movie/popular"}
@@ -195,15 +195,34 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
     # --- 4. Auto-Seed indexers in Prowlarr based on deployed clients ---
     if "prowlarr" in keys:
         p_key = keys["prowlarr"]
-        prowlarr_indexers_url = f"http://localhost:9696/api/v1/indexer?apikey={p_key}"
+        
+        # Dynamically resolve Prowlarr port from registry instead of hardcoding 9696
+        prowl_port = 9696
+        reg_p = next((e for e in registry_list if e.key == "prowlarr"), None)
+        if reg_p and reg_p.port:
+            prowl_port = int(reg_p.port)
+            
+        prowlarr_indexers_url = f"http://localhost:{prowl_port}/api/v1/indexer?apikey={p_key}"
 
-        # Usenet Indexers (NZB) - Seeded for Minimal setup
+        # 1. Zero-Touch Free Tier Indexers (Automatically configured fallbacks)
         nzb_indexers = [
             {
-                "name": "Sky-Of-Usenet",
+                "name": "Sky-Of-Usenet (Free)",
                 "implementation": "Newznab",
                 "configContract": "NewznabSettings",
                 "fields": [{"name": "baseUrl", "value": "https://skyofusenet.de"}]
+            },
+            {
+                "name": "NZBFinder (Free Tier)",
+                "implementation": "Newznab",
+                "configContract": "NewznabSettings",
+                "fields": [{"name": "baseUrl", "value": "https://nzbfinder.ws"}]
+            },
+            {
+                "name": "Tabula-Rasa (Free Tier)",
+                "implementation": "Newznab",
+                "configContract": "NewznabSettings",
+                "fields": [{"name": "baseUrl", "value": "https://www.nzb-rasa.com"}]
             }
         ]
         
@@ -227,19 +246,68 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
         if "qbittorrent" in selected or "qbittorrent-vpn" in selected:
             indexers_to_seed.extend(torrent_indexers)
 
+        write_log("Auto-seeding free Usenet and torrent indexers in Prowlarr... Note: Free indexers have daily search limits (e.g. 3-10 per day).", level="INFO")
         for indexer in indexers_to_seed:
             payload = {
                 "name": indexer["name"],
-                "enable": true,
+                "enable": True,
                 "implementation": indexer["implementation"],
                 "configContract": indexer["configContract"],
                 "fields": indexer["fields"]
             }
             try:
                 rest_invoker(prowlarr_indexers_url, method="POST", json_payload=payload)
-                results.append(f"Auto-seeded Prowlarr indexer: {indexer['name']}")
+                results.append(f"Auto-seeded indexer: {indexer['name']}")
             except Exception:
-                # Ignore if indexer already exists
                 pass
+
+        # 2. Interactive Premium Indexers configuration (Guides the user)
+        import questionary
+        from src.utils.logger import safe_confirm, console
+        
+        if os.getenv("DS_HEADLESS") != "true":
+            console.print("\n----------------------------------------------------------", style="cyan")
+            console.print("             PREMIUM USENET INDEXER SETUP", style="cyan")
+            console.print("----------------------------------------------------------", style="cyan")
+            console.print("For automated downloading, it is highly recommended to add one premium Usenet indexer.")
+            console.print("Providers like NZBGeek, NinjaCentral, and AltHub frequently offer low-cost lifetime deals.")
+            
+            if safe_confirm("Would you like to configure a premium Usenet indexer now?", default=True):
+                prov = questionary.select(
+                    "Select USENET Indexer to add:",
+                    choices=["NZBGeek", "NinjaCentral", "AltHub", "Other Newznab"]
+                ).ask()
+                
+                if prov:
+                    base_urls = {
+                        "NZBGeek": "https://api.nzbgeek.info",
+                        "NinjaCentral": "https://ninjacentral.co.za",
+                        "AltHub": "https://althub.co.za"
+                    }
+                    
+                    if prov == "Other Newznab":
+                        b_url = questionary.text("Enter Indexer Base URL (e.g. https://custom-index.com):").ask()
+                    else:
+                        b_url = base_urls.get(prov)
+                        
+                    if b_url:
+                        api_key = questionary.password(f"Enter your {prov} API Key:").ask()
+                        if api_key and api_key.strip():
+                            premium_payload = {
+                                "name": prov,
+                                "enable": True,
+                                "implementation": "Newznab",
+                                "configContract": "NewznabSettings",
+                                "fields": [
+                                    {"name": "baseUrl", "value": b_url.strip()},
+                                    {"name": "apiKey", "value": api_key.strip()}
+                                ]
+                            }
+                            try:
+                                rest_invoker(prowlarr_indexers_url, method="POST", json_payload=premium_payload)
+                                results.append(f"Successfully configured premium indexer: {prov}")
+                                console.print(f"[✓] Linked {prov} to Prowlarr", style="green")
+                            except Exception as e:
+                                write_log(f"Failed to add premium indexer {prov}: {str(e)}", level="WARN")
 
     return results

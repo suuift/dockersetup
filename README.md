@@ -58,6 +58,7 @@ Follow the interactive menus to select your installation tier, configure credent
 
 *   **Stateless Builder Architecture:** Keeps the code repository clean. All configurations, state metadata, and Docker Compose directories write directly to your target directory.
 *   **Fully Automated Stitching & Stitch-Config:** Automatically links download clients to PVRs, Prowlarr to indexers, Bazarr to subtitles, and connects Radarr/Sonarr import lists (Plex watchlists, StevenLu popular list) and quality renaming configs out of the box.
+*   **Interactive Setup Wizards:** Streamlines initial configuration with guided prompts for Plex claim tokens, Usenet server definitions, Prowlarr indexers, and API credential syncing.
 *   **Zero-Touch Authentication Integration:** Automatically configures internal service configuration files to use native authentication or secure external reverse proxies (like Authelia/Nginx Proxy Manager).
 *   **Self-Healing Binary Updates:** STANDALONE binaries automatically verify, pull, swap, and relaunch dynamically on update checks, keeping deployments seamlessly aligned with repository updates.
 *   **Visual Dashboards (Homepage):** Auto-generates a clean Homepage config containing dynamic container API keys, local disk mounts, and targeted bookmarks (like Titus winutil debloat).

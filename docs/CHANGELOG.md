@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.27] - 2026-06-10
+### Fixed
+- **[Main]** Fixed syntax errors (`NameError`) in `strategy_servarr.py` where lowercase `true` was evaluated instead of Python's boolean `True`.
+- **[Main]** Dynamically resolved Prowlarr port from registry instead of using hardcoded port `9696`.
+- **[Main]** Prevented `IndexError` on malformed line parsing in `yaml_parser.py` by adding defensive splitting logic.
+- **[Main]** Handled `docker compose pull` CLI parameter differences by adding fallback pulling flags.
+- **[Homepage]** Decoupled Homepage dashboard layout settings generation, dynamically pulling stack categories from `services.yml` rather than hardcoded definitions.
+- **[Authelia]** Automated Nginx Proxy Manager integration when both `authelia` and `npm plus (+goaccess)` are deployed by writing a reusable `authelia-auth.conf` configuration snippet.
+- **[UX]** Built interactive setup wizards for Plex claim token, Tailscale keys, and Seerr connection configurations.
+- **[USENET]** Implemented interactive SABnzbd newsgroup server configurations. Added free Newznab Usenet indexers (`NZBFinder`, `Tabula-Rasa`) and prompted for premium indexers (`NZBGeek`, `NinjaCentral`, `AltHub`).
+
 ## [1.5.26] - 2026-06-10
 ### Fixed
 - **[Updater]** Unified self-update relaunch execution to use `os.execv` on Windows (using overlay mechanism) instead of `subprocess.Popen` which caused terminal stdin control to return to the shell prompt and freeze keyboard input in the child process.

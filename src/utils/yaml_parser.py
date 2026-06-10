@@ -53,18 +53,27 @@ def get_yaml_content(file_path: str) -> Dict[str, Any]:
         for item in items:
             if not isinstance(item, str):
                 continue
-            parts = [p.strip() for p in item.split("|")]
+            parts = [p.strip() for p in item.split("|") if p.strip() or p == '']
+            if not parts or not parts[0]:
+                write_log(f"Malformed entry in section '{section_name}': '{item}'", level="WARN")
+                continue
             
             if section_name == "STACK_GROUPS":
+                stack_name = parts[0]
+                services = []
                 if len(parts) >= 2:
-                    stack_name = parts[0]
                     services = [s.strip() for s in parts[1].split(",") if s.strip()]
-                    data[section_name].append(StackGroup(stack_name, services))
+                else:
+                    write_log(f"Stack group '{stack_name}' has no services defined.", level="WARN")
+                data[section_name].append(StackGroup(stack_name, services))
             elif section_name == "RECOMMENDATIONS":
+                source_svc = parts[0]
+                rec_svcs = []
                 if len(parts) >= 2:
-                    source_svc = parts[0]
                     rec_svcs = [s.strip() for s in parts[1].split(",") if s.strip()]
-                    data[section_name].append(Recommendation(source_svc, rec_svcs))
+                else:
+                    write_log(f"Recommendation for '{source_svc}' has no recommended services defined.", level="WARN")
+                data[section_name].append(Recommendation(source_svc, rec_svcs))
             elif section_name in ["CONFIGURABLE_APPS", "ARR_APPS", "SUPPORTED_WIDGETS"]:
                 name = parts[0]
                 alias = name

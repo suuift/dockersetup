@@ -74,13 +74,19 @@ GAMES:
   - enshrouded | 15636 | enshrouded | Dedicated server for cooperative multiplayer in the voxel-based survival world of Enshrouded.
 
 RECOMMENDATIONS:
-  - sonarr | prowlarr, bazarr, recyclarr
-  - radarr | prowlarr, bazarr, recyclarr
-  - lidarr | prowlarr, recyclarr
-  - plex | tautulli, seerr
-  - jellyfin | seerr
-  - npm plus (+goaccess) | cloudflare-ddns, authelia
+  - sonarr | prowlarr, bazarr, recyclarr, qbittorrent, sabnzbd
+  - radarr | prowlarr, bazarr, recyclarr, qbittorrent, sabnzbd
+  - lidarr | prowlarr, recyclarr, qbittorrent, sabnzbd
+  - readarr | prowlarr, recyclarr, qbittorrent, sabnzbd
+  - mylar | prowlarr, recyclarr, qbittorrent, sabnzbd
+  - qbittorrent | prowlarr, sonarr, radarr
+  - sabnzbd | prowlarr, sonarr, radarr
+  - plex | tautulli, seerr, watchtower
+  - jellyfin | seerr, watchtower
+  - npm plus (+goaccess) | cloudflare-ddns, authelia, crowdsec
   - mariadb (+adminer) | authelia
+  - postgresql (+cloudbeaver) | authelia
+  - mongodb (+mongo-express) | authelia
 
 CONFIGURABLE_APPS:
   - sonarr

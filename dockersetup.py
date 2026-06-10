@@ -381,27 +381,65 @@ def main():
                         console.print("\n6. Bazarr Subtitle Setup:", style="yellow")
                         console.print("   Bazarr is auto-linked to Radarr/Sonarr, but subtitles providers require configuration.")
                         console.print("   Access http://localhost:6767 → Settings → Languages/Providers to set up.", style="grey50")
+                    # Seerr Interactive Setup Assistant
                     if "seerr" in selected_svcs:
-                        console.print("\n7. Seerr Setup & API Key (Required for Dashboard):", style="yellow")
-                        console.print("   Seerr stores its API key in SQLite and must be configured manually.")
-                        console.print("   1. Open http://localhost:5055 and run first setup (connect Plex/Jellyfin).")
-                        console.print("   2. Go to Settings → Services → Add Radarr (radarr:7878) & Sonarr (sonarr:8989)")
-                        console.print("      using their API keys (shown in your .env).")
-                        console.print("   3. Go to Settings → General, copy Seerr's API Key and paste it into")
-                        console.print("      your main .env as SEERR_API_KEY=XXX, then restart the homepage container.", style="grey50")
-                    if "sabnzbd" in selected_svcs:
-                        console.print("\n8. SABnzbd Server Setup (USENET):", style="yellow")
-                        console.print("   SABnzbd is up at http://localhost:8080. You need to configure a news provider:")
-                        console.print("   1. We highly recommend using [link=https://newsgroup.ninja]Newsgroup.ninja[/link] for fast USENET access.")
-                        console.print("   2. Walkthrough: Settings → Servers → Add Active Server using host 'news.newsgroup.ninja',")
-                        console.print("      SSL port '563', and your Ninja username/password.", style="grey50")
-                    if "prowlarr" in selected_svcs:
-                        console.print("\n9. Prowlarr Indexer Setup (Usenet Search):", style="yellow")
-                        console.print("   Prowlarr is up at http://localhost:9696. We auto-seeded public indexers, but you")
-                        console.print("   should add premium USENET indexers for full search coverage:")
-                        console.print("   1. We recommend register at [link=https://nzbgeek.info]NZBGeek[/link] or [link=https://nzbplanet.net]NZBPlanet[/link].")
-                        console.print("   2. Walkthrough: Indexers → Add Newznab Indexer → Select NZBGeek/NZBPlanet,")
-                        console.print("      and paste your API key. Prowlarr will auto-sync it to Sonarr/Radarr.", style="grey50")
+                        console.print("\n----------------------------------------------------------", style="cyan")
+                        console.print("             SEERR DASHBOARD SYNC ASSISTANT", style="cyan")
+                        console.print("----------------------------------------------------------", style="cyan")
+                        console.print("Let's configure Seerr for your dashboard now.")
+                        
+                        do_seerr_setup = False
+                        if os.getenv("DS_HEADLESS") != "true":
+                            do_seerr_setup = safe_confirm("Would you like to complete Seerr's first-time configuration now?", default=True)
+                            
+                        if do_seerr_setup:
+                            # Prompt user to open browser
+                            launch = safe_confirm("Shall I open http://localhost:5055 in your browser now?", default=True)
+                            if launch:
+                                try:
+                                    import webbrowser
+                                    webbrowser.open("http://localhost:5055")
+                                except Exception:
+                                    console.print("[!] Failed to open browser. Please visit http://localhost:5055 manually.", style="yellow")
+                                    
+                            # Conditionally output checklist instructions
+                            from rich.panel import Panel
+                            checklist = "[bold white]SEERR FIRST-TIME CONFIGURATION CHECKLIST:[/bold white]\n\n"
+                            checklist += "1. Sign in to Seerr with your Plex or Jellyfin account.\n"
+                            
+                            services_details = []
+                            if "radarr" in selected_svcs:
+                                services_details.append("Radarr (Host: 'radarr', Port: '7878')")
+                            if "sonarr" in selected_svcs:
+                                services_details.append("Sonarr (Host: 'sonarr', Port: '8989')")
+                                
+                            if services_details:
+                                checklist += "2. Go to Settings -> Services -> Add connection to:\n"
+                                for detail in services_details:
+                                    checklist += f"   - {detail}\n"
+                                    
+                            checklist += "3. Go to Settings -> General. Scroll down to API Key.\n"
+                            checklist += "4. Copy the API Key and paste it in the prompt below."
+                            
+                            console.print(Panel(checklist, border_style="cyan"))
+                            
+                            # Prompt for API Key
+                            seerr_key = questionary.password("Paste Seerr API Key (leave blank to skip / configure manually later):").ask()
+                            if seerr_key and seerr_key.strip():
+                                from src.utils.state import set_env_var
+                                set_env_var("SEERR_API_KEY", seerr_key.strip(), file_path=env_file)
+                                console.print("[✓] Saved SEERR_API_KEY to configuration .env", style="green")
+                                
+                                # Reload homepage to pick up key
+                                hp_path = resolve_path_slash(os.path.join(d_dir, "stacks", "maintenance"))
+                                if os.path.exists(hp_path):
+                                    write_step("Reloading dashboard widgets...")
+                                    try:
+                                        subprocess.run(["docker", "compose", "up", "-d", "--remove-orphans"], cwd=hp_path, capture_output=True)
+                                    except Exception:
+                                        pass
+                            else:
+                                write_log("Seerr configuration key skipped. Seerr widgets will remain unauthenticated.", level="WARN")
 
                     invoke_token_wizard(d_dir)
                     exit_script = True
