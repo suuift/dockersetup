@@ -1,5 +1,9 @@
 # DockerSetup
 
+<p align="center">
+  <img src="resources/dockersetup.png" alt="DockerSetup Logo" width="256" height="256">
+</p>
+
 A professional-grade, cross-platform Python automation suite for deploying a complete Media and Home Server stack on Windows and Linux using Docker.
 
 ## Quick Start
@@ -63,7 +67,8 @@ Follow the interactive menus to select your installation tier, configure credent
 *   **Permissions Hardening:** Automatically detects host users via `SUDO_UID` and `SUDO_GID` on Linux. Corrects and secures directory ownership recursively to prevent container write errors—specifically optimized for immutable Linux distributions (Bazzite, SteamOS, Fedora Silverblue).
 *   **Multi-Stack Deployment:** Automatically splits services into logical groups (Core, Media-PVR, Downloaders, etc.) for isolation and management via Dockge.
 *   **Zero-Touch Authentication:** Automatically secures 11+ application web interfaces (Sonarr, Radarr, qBittorrent, etc.) using your custom management credentials.
-*   **Rich Dashboards:** Generates a professional Homepage dashboard pre-configured with direct repository bookmarks, docker socket mapping, and live data widgets for active downloads, library statistics, and service status.
+*   **Visual Packaging & Custom Branding:** Bundled with a custom Python-Docker fusion binary icon and embedded clean branding graphics.
+*   **Rich Dashboards:** Generates a professional Homepage dashboard pre-configured with direct repository bookmarks (including automated Windows debloat utilities), local storage mapping, docker socket access, and live data widgets with inline environment variables.
 *   **Advanced Stitching:** Automatically links services (e.g., Prowlarr to PVRs, FlareSolverr to Prowlarr, Seerr to Radarr) during installation.
 *   **Concurrent Image Downloads:** Employs a thread pool to download service images concurrently, significantly speeding up deployment.
 *   **CI/CD Release Automation:** Incorporates automated semantic versioning, changelog updates, and multi-OS PyInstaller compilation triggers using GitHub Actions.
