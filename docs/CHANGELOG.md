@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.23] - 2026-06-10
+### Fixed
+- **[Docs]** Realigned the logo in `README.md` to be inline with the primary header name and scaled it down (height of 38px) for clean presentation.
+
+## [1.5.22] - 2026-06-10
+### Fixed
+- **[Docs]** Added the untracked logo image file `resources/dockersetup.png` and binary icon `resources/app.ico` to the repository tracking, allowing remote GitHub rendering.
+
 ## [1.5.21] - 2026-06-10
 ### Fixed
 - **[Homepage]** Reverted services widget key variables to double curly bracket placeholders (e.g. `{{HOMEPAGE_VAR_X}}`) and restored dynamic environmental mapping generation in `docker-compose.yml` to satisfy Homepage's strict API credential isolation rules.
