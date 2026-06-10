@@ -250,8 +250,9 @@ def auto_stitch_services() -> bool:
                                 except Exception as e:
                                     write_log(f"Warning: Failed to seed Tautulli config.ini: {str(e)}", level="WARN")
 
-                    env_key = f"{svc}_API_KEY".upper().replace("-", "_")
-                    set_env_var(env_key, key, file_path=env_path)
+                    if key:
+                        env_key = f"{svc}_API_KEY".upper().replace("-", "_")
+                        set_env_var(env_key, key, file_path=env_path)
 
     # --- 2. Load Management Credentials ---
     http_user = "admin"

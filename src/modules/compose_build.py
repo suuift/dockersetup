@@ -203,6 +203,8 @@ def build_compose_stacks() -> bool:
                 hp_output += f"- {friendly_group_name}:\n"
                 for app in stack_apps:
                     svc_key = app["Name"]
+                    if svc_key == "homepage":
+                        continue
                     
                     # Find registry entry
                     reg_entry = None
@@ -366,7 +368,7 @@ def build_compose_stacks() -> bool:
             # Determine disk path
             drive = os.path.splitdrive(deploy_dir)[0]
             if drive:
-                disk_path = "/" + drive.replace(":", "")
+                disk_path = "/" + drive.replace(":", "").lower()
             else:
                 disk_path = "/"
                 

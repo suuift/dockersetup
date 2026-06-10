@@ -51,6 +51,10 @@ def set_env_var(key: str, value: str, file_path: str = None):
     if file_path in _env_cache:
         del _env_cache[file_path]
 
+    # Handle null/None values safely
+    if value is None:
+        value = ""
+
     # Handle multi-line secrets escaping
     formatted_val = value
     if "\n" in value or "\r" in value:
