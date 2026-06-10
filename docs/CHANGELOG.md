@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.25] - 2026-06-10
+### Fixed
+- **[Main]** Resolved `NoneType` value crash during environment variable mapping inside `set_env_var` function.
+- **[Homepage]** Filtered dashboard rendering to exclude the `homepage` service itself from listing.
+- **[Homepage]** Configured the disk widget usage path to be lowercase (`/c`) to align with container case sensitivity.
+- **[CI/CD]** Removed redundant/failing `release-please` Github workflow in favor of tag-triggered asset builder.
+
 ## [1.5.24] - 2026-06-10
 ### Fixed
 - **[Main]** Enforced `External` authentication configurations for Sonarr, Radarr, and Lidarr by writing pre-seeded `config.xml` files prior to starting the containers, preventing double authorization prompts.
