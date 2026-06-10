@@ -236,7 +236,7 @@ def build_compose_stacks() -> bool:
                     hp_output += f"    - {svc_key}:\n"
                     hp_output += f"        icon: {clean_key}.png\n"
 
-                    if port != "0":
+                    if port and port != "0":
                         url = f"http://localhost:{port}"
                         base_domain = "local.host"
                         # Fetch base domain from env

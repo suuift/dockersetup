@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.15] - 2026-06-10
+### Fixed
+- **[Homepage]** Avoid rendering `url` and `widget` configurations for services with unresolved ports (i.e. `port == None` or `port == "0"`). This prevents Homepage from throwing URL parsing errors.
+- **[Tautulli]** Added API key extraction support for Tautulli config.ini so that Homepage widgets can query it.
+- **[SABnzbd]** Injected `host_whitelist = sabnzbd, localhost` into `sabnzbd.ini` to resolve HTTP hostname validation issues when queried by the homepage container.
+- **[Auto-Configure]** Triggered `.env` sync to stacks right after keys are successfully extracted and written to the master `.env`, ensuring the reloaded stacks have the latest API keys.
+
+## [1.5.14] - 2026-06-10
+### Fixed
+- **[Homepage]** Jellyfin widget now correctly uses `apiKey:` field instead of `key:` — the `key:` field caused Homepage to pass a raw object reference into the Jellyfin API URL, producing `api_key=[object%20Object]` and 401 authentication failures.
+### Added
+- **[UX]** Post-install NEXT STEPS now includes contextual guidance for Tautulli (how to retrieve the permanent Plex auth token) and Bazarr (manual Sonarr/Radarr connection steps), shown only when those services are in the selected stack.
+
+## [1.5.13] - 2026-06-09
+### Fixed
+- **[Main]** Added missing `import re` to `dockersetup.py` — caused a `NameError` crash in the post-install summary when parsing credentials from the `.env` file.
+
+## [1.5.12] - 2026-06-09
+### Fixed
+- **[Updater]** Clean up leftover `.old` binary backup on startup after a self-update swap completes, instead of waiting until the next update cycle.
+
+## [1.5.11] - 2026-06-09
+### Fixed
+- **[Templates]** Removed `5353:5353/udp` (mDNS) from Plex compose template — conflicts with `DNS Client` on Windows and `systemd-resolved` on Linux, causing the entire `media-server` stack to fail on startup. LAN discovery still works via ports 1900/udp and 32410–32414/udp.
+- **[Stitching]** Fixed Prowlarr→PVR linking returning `400 Bad Request`: moved `syncLevel` from the `fields` array to a top-level property, added required `syncProfileIds: [1]`, `implementationName`, per-app `syncCategories` and `animeSyncCategories` to match the current Prowlarr API schema.
+
 ## [1.5.10] - 2026-06-09
 ### Fixed
 - **[Updater]** Replaced `subprocess.Popen` + `sys.exit` restart with `os.execv` on Linux/macOS, eliminating the PyInstaller temp dir race condition that caused `libpython3.11.so.1.0` to fail loading after a self-update.

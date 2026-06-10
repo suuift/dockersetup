@@ -104,6 +104,8 @@ def get_api_key(app: str, deploy_dir: str) -> str:
     config_path = os.path.join(deploy_dir, "appdata", app, "config", "config.xml")
     if app == "sabnzbd":
         config_path = os.path.join(deploy_dir, "appdata", "sabnzbd", "config", "sabnzbd.ini")
+    elif app == "tautulli":
+        config_path = os.path.join(deploy_dir, "appdata", "tautulli", "config.ini")
 
     if not os.path.exists(config_path):
         return None
@@ -117,6 +119,19 @@ def get_api_key(app: str, deploy_dir: str) -> str:
                     return config[section]["api_key"].strip()
             
             # Simple text fallback if configparser fails on non-standard ini
+            with open(config_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    match = re.match(r"^api_key\s*=\s*(.*)", line)
+                    if match:
+                        return match.group(1).strip()
+        elif app == "tautulli":
+            config = configparser.ConfigParser(strict=False, empty_lines_in_values=False)
+            config.read(config_path, encoding="utf-8")
+            for section in config.sections():
+                if "api_key" in config[section]:
+                    return config[section]["api_key"].strip()
+            
+            # Fallback
             with open(config_path, "r", encoding="utf-8") as f:
                 for line in f:
                     match = re.match(r"^api_key\s*=\s*(.*)", line)
@@ -269,8 +284,11 @@ def auto_stitch_services() -> bool:
     metadata["auto_config_results"] = config_results
     set_metadata(metadata)
 
-    # --- 5. Restart Dependent Stacks ---
-    write_log("Reloading dashboard and maintenance stacks to apply new keys...")
+    # --- 5. Sync and Restart Dependent Stacks ---
+    write_log("Syncing environment variables and reloading dashboard/maintenance stacks to apply new keys...")
+    from dockersetup import sync_dot_env
+    sync_dot_env(env_path, deploy_dir)
+
     stacks_to_reload = ["maintenance", "media-server"]
     for st in stacks_to_reload:
         st_path = os.path.join(deploy_dir, "stacks", st)
