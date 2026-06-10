@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.30] - 2026-06-10
+### Fixed
+- **[Installer]** Corrected Inno Setup constant definition for user's AppData path from invalid `{userlocalappdata}` to standard `{localappdata}`.
+
 ## [1.5.29] - 2026-06-10
 ### Fixed
 - **[CI/CD]** Fixed the missing executable icon on release binaries by passing the `--icon` parameter to the PyInstaller task in GitHub Actions.
