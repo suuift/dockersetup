@@ -341,8 +341,8 @@ def main():
                             write_log(f"Failed to copy log file: {str(e)}", level="DEBUG")
 
                     console.print("\nNEXT STEPS:", style="yellow")
-                    console.print("1. Access your Dashboard at http://localhost:3000")
-                    console.print("2. Access Dockge Management at http://localhost:5001")
+                    console.print("1. Access your Dashboard at [link=http://localhost:3000]http://localhost:3000[/link]")
+                    console.print("2. Access Dockge Management at [link=http://localhost:5001]http://localhost:5001[/link]")
 
                     # Extract credentials for printout
                     h_user = "admin"
