@@ -57,29 +57,44 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
         p_key = keys["prowlarr"]
         p_url = f"http://localhost:9696/api/v1/applications?apikey={p_key}"
         
-        # PVRs to link to Prowlarr
-        pvrs = ["sonarr", "radarr", "lidarr", "readarr", "mylar"]
-        for app in pvrs:
+        # PVRs to link to Prowlarr, with their Servarr sync category sets
+        pvr_categories = {
+            "sonarr":  {"sync": [5000, 5010, 5020, 5030, 5040, 5045, 5050], "anime": [5070]},
+            "radarr":  {"sync": [2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060], "anime": [2070]},
+            "lidarr":  {"sync": [3000, 3010, 3020, 3030, 3040], "anime": []},
+            "readarr": {"sync": [7000, 7010, 7020, 7030, 7040, 7050], "anime": []},
+            "mylar":   {"sync": [7000, 7010, 7020, 7030, 7040, 7050], "anime": []},
+        }
+        for app, cats in pvr_categories.items():
             if app in selected and app in keys:
                 write_log(f"Stitching Prowlarr to {app}...")
                 reg_entry = next((e for e in registry_list if e.key == app), None)
                 if reg_entry:
+                    fields = [
+                        {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
+                        {"name": "baseUrl",     "value": f"http://{app}:{reg_entry.port}"},
+                        {"name": "apiKey",      "value": keys[app]},
+                        {"name": "syncCategories",      "value": cats["sync"]},
+                    ]
+                    if cats["anime"]:
+                        fields.append({"name": "animeSyncCategories", "value": cats["anime"]})
+
                     payload = {
                         "name": app.upper(),
-                        "configContract": f"{app.capitalize()}Settings",
+                        "implementationName": app.capitalize(),
                         "implementation": app.capitalize(),
-                        "fields": [
-                            {"name": "prowlarrUrl", "value": "http://prowlarr:9696"},
-                            {"name": "baseUrl", "value": f"http://{app}:{reg_entry.port}"},
-                            {"name": "apiKey", "value": keys[app]},
-                            {"name": "syncLevel", "value": "fullSync"}
-                        ]
+                        "configContract": f"{app.capitalize()}Settings",
+                        "syncLevel": "fullSync",
+                        "syncProfileIds": [1],
+                        "fields": fields,
+                        "tags": []
                     }
                     try:
                         rest_invoker(p_url, method="POST", json_payload=payload)
                         results.append(f"Linked Prowlarr to {app}")
                     except Exception as e:
                         write_log(f"Failed to link Prowlarr to {app}: {str(e)}", level="WARN")
+
 
         # 3. Flaresolverr Proxy (Anti-Cloudflare for Indexers)
         if "flaresolverr" in selected:
