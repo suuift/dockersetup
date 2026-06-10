@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.11"
+VERSION = "1.5.12"
 
 def parse_version(v_str: str):
     """
@@ -79,6 +79,15 @@ def invoke_self_update(project_root: str) -> bool:
 
     # Check if running as a compiled PyInstaller binary (Frozen mode)
     elif getattr(sys, "frozen", False):
+        # Clean up leftover .old backup from a previous self-update swap
+        old_backup = sys.executable + ".old"
+        if os.path.exists(old_backup):
+            try:
+                os.remove(old_backup)
+                write_log("Cleaned up previous binary backup (.old).", level="DEBUG")
+            except OSError:
+                pass  # May still be locked on Windows; silently skip
+
         console.print("--- Checking for Compiled Binary Updates ---", style="cyan")
         try:
             # Check the GitHub Releases API for updates
