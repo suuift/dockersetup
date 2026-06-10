@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.16] - 2026-06-10
+### Fixed
+- **[Main]** Removed duplicate local `import re` inside `invoke_token_wizard` that was causing an `UnboundLocalError` when Python attempted to access the global name before executing the local import statement.
+
 ## [1.5.15] - 2026-06-10
 ### Fixed
 - **[Homepage]** Avoid rendering `url` and `widget` configurations for services with unresolved ports (i.e. `port == None` or `port == "0"`). This prevents Homepage from throwing URL parsing errors.

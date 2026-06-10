@@ -67,7 +67,6 @@ def invoke_token_wizard(target_dir: str):
             if not re.search(fr"^{info['Var']}=", env_content, re.MULTILINE):
                 to_configure.append(svc)
 
-    import re
     if to_configure and os.getenv("DS_HEADLESS") != "true":
         console.print("\n----------------------------------------------------------", style="cyan")
         console.print("             HOMEPAGE WIDGET SETUP", style="cyan")
