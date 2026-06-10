@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.24] - 2026-06-10
+### Fixed
+- **[Main]** Enforced `External` authentication configurations for Sonarr, Radarr, and Lidarr by writing pre-seeded `config.xml` files prior to starting the containers, preventing double authorization prompts.
+- **[Main]** Enabled episode renaming rules and default root directory paths `/movies`, `/tv`, and `/music` during servarr strategies connection calls.
+- **[Main]** Auto-configured Radarr/Sonarr import lists (Plex watchlist with 3-hour refresh intervals and StevenLu popular list) when a valid `PLEX_TOKEN` is found.
+- **[Prowlarr]** Configured public Usenet indexers for Minimal setups and added public Torrent indexers if a BitTorrent client is selected.
+- **[Bazarr]** Integrated automated subtitle client auto-configuration linking Bazarr to Radarr and Sonarr via API.
+- **[Homepage]** Filtered out all background services without an active Web UI from `services.yaml`.
+- **[UX]** Expanded installer prompt detail to encourage Plex Claim tokens and updated post-setup guidelines (Tautulli, SABnzbd, Prowlarr, Seerr).
+- **[Docs]** Trimmed the Key Features list in `README.md` to primary strategic highlights.
+
 ## [1.5.23] - 2026-06-10
 ### Fixed
 - **[Docs]** Realigned the logo in `README.md` to be inline with the primary header name and scaled it down (height of 38px) for clean presentation.
