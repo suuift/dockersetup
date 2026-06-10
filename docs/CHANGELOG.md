@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.10] - 2026-06-09
+### Fixed
+- **[Updater]** Replaced `subprocess.Popen` + `sys.exit` restart with `os.execv` on Linux/macOS, eliminating the PyInstaller temp dir race condition that caused `libpython3.11.so.1.0` to fail loading after a self-update.
+- **[CI]** Switched `build-assets` workflow trigger from `release: published` to `push: tags: v*` so binaries are automatically built for every version tag without requiring a manual release first. Added `certifi` to the workflow pip install.
+
 ## [1.5.9] - 2026-06-09
 ### Added
 - **[Self-Update]** Fully implemented update checking and binary swapping for compiled/frozen executables (Linux and Windows).

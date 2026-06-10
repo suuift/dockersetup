@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.9"
+VERSION = "1.5.10"
 
 def parse_version(v_str: str):
     """
@@ -169,9 +169,16 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
         
         write_log("Update successfully applied and staged. Restarting binary...", level="INFO")
         
-        # 5. Spawns new process and exit
-        subprocess.Popen([target_exe_path], env=get_clean_env())
-        sys.exit(0)
+        # 5. Replace current process in-place (avoids temp dir race with Popen+exit)
+        # os.execv is Unix-only; fall back to Popen+exit on Windows
+        if sys.platform != "win32":
+            clean_env = get_clean_env()
+            os.environ.clear()
+            os.environ.update(clean_env)
+            os.execv(target_exe_path, [target_exe_path])
+        else:
+            subprocess.Popen([target_exe_path], env=get_clean_env())
+            sys.exit(0)
         
     except PermissionError as e:
         write_log(
