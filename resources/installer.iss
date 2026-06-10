@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=DockerSetup
-AppVersion=1.5.27
+AppVersion=1.5.28
 AppPublisher=suuift
 AppPublisherURL=https://github.com/suuift/dockersetup
 DefaultDirName={userlocalappdata}\DockerSetup

@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.28] - 2026-06-10
+### Added
+- **[Installer]** Added Inno Setup compiler script configuration for Windows user-writable Local AppData packaging.
+- **[Installer]** Created Zenity-based native GTK GUI installer and application launcher desktop configuration for Linux.
+- **[CI/CD]** Integrated Windows & Linux automated installer generation steps into the project compilation script.
+
 ## [1.5.27] - 2026-06-10
 ### Fixed
 - **[Main]** Fixed syntax errors (`NameError`) in `strategy_servarr.py` where lowercase `true` was evaluated instead of Python's boolean `True`.
