@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.26] - 2026-06-10
+### Fixed
+- **[Updater]** Unified self-update relaunch execution to use `os.execv` on Windows (using overlay mechanism) instead of `subprocess.Popen` which caused terminal stdin control to return to the shell prompt and freeze keyboard input in the child process.
+
 ## [1.5.25] - 2026-06-10
 ### Fixed
 - **[Main]** Resolved `NoneType` value crash during environment variable mapping inside `set_env_var` function.

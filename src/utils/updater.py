@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.25"
+VERSION = "1.5.26"
 
 def parse_version(v_str: str):
     """
@@ -178,21 +178,18 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
         
         write_log("Update successfully applied and staged. Restarting binary...", level="INFO")
         
-        # 5. Replace current process in-place (avoids temp dir race with Popen+exit)
-        # os.execv is Unix-only; fall back to Popen+exit on Windows
-        if sys.platform != "win32":
-            clean_env = get_clean_env()
-            os.environ.clear()
-            os.environ.update(clean_env)
-            os.execv(target_exe_path, [target_exe_path])
-        else:
-            # Print cleanly formatted console separators to avoid overlapped terminal outputs
-            print("\n" + "="*60)
-            print("                RELAUNCHING MEDIA STACK MANAGER")
-            print("="*60 + "\n")
-            sys.stdout.flush()
-            subprocess.Popen([target_exe_path], env=get_clean_env())
-            sys.exit(0)
+        # Print cleanly formatted console separators to avoid overlapped terminal outputs
+        print("\n" + "="*60)
+        print("                RELAUNCHING MEDIA STACK MANAGER")
+        print("="*60 + "\n")
+        sys.stdout.flush()
+
+        # 5. Replace current process in-place (avoids temp dir race and shell stdin hijacking)
+        # os.execv is supported on both Unix and Windows (runs as P_OVERLAY on Windows)
+        clean_env = get_clean_env()
+        os.environ.clear()
+        os.environ.update(clean_env)
+        os.execv(target_exe_path, [target_exe_path])
         
     except PermissionError as e:
         write_log(
