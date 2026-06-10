@@ -15,9 +15,11 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
         "--add-data", f"resources/templates.yml{data_sep}resources",
     ]
     
-    # Enable automatic Administrator elevation for Windows builds
+    # Enable automatic Administrator elevation and set icon for Windows builds
     if platform.system() == "Windows":
         cmd.append("--uac-admin")
+        if os.path.exists("resources/app.ico"):
+            cmd.extend(["--icon", "resources/app.ico"])
         
     cmd.append("dockersetup.py")
     

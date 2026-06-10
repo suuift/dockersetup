@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.21] - 2026-06-10
+### Fixed
+- **[Homepage]** Reverted services widget key variables to double curly bracket placeholders (e.g. `{{HOMEPAGE_VAR_X}}`) and restored dynamic environmental mapping generation in `docker-compose.yml` to satisfy Homepage's strict API credential isolation rules.
+- **[SABnzbd]** Expanded `host_whitelist` injection to include local subnet IPs and container hostnames (`sabnzbd, localhost, 127.0.0.1, 192.168.90.11`), resolving hostname validation access warnings in Docker networks.
+
+## [1.5.20] - 2026-06-10
+### Fixed
+- **[Docs]** Replaced HTML logo tags with standard Markdown image tags in `README.md` to ensure correct rendering.
+- **[Main]** Updated terminal print outputs in `dockersetup.py` using Rich OSC 8 hyperlinks to make URL shortcuts to Dashboard and Dockge clickable.
+
+## [1.5.19] - 2026-06-10
+### Fixed
+- **[Homepage]** Replaced Homepage environment variable string placeholders (e.g. `{{HOMEPAGE_VAR_X}}`) with direct environmental configurations (e.g. `$X`) in `services.yaml` widgets.
+### Added
+- **[Homepage]** Added ChrisTitusTech Windows Debloat scripts link to `bookmarks.yaml`.
+- **[Docs]** Inserted the new visual Python-Docker logo image and updated features in `README.md`.
+
+## [1.5.18] - 2026-06-10
+### Fixed
+- **[Homepage]** Formatted bookmarks.yaml developer section according to the exact indentation specification.
+- **[Homepage]** Replaced existing widgets.yaml content with custom resources/search/datetime setup, dynamically determining the system path disk letter based on the environment installation target location.
+- **[Main]** Added trailing newlines and clean terminal relaunch headers when binary swaps are executed, avoiding console text overlaps during background process spawning.
+
+## [1.5.17] - 2026-06-10
+### Fixed
+- **[Homepage]** Wrapped widget configuration blocks to only output if the corresponding service URL is successfully generated. This prevents any empty widget definitions from causing Next.js URL constructor exceptions.
+### Added
+- **[UX]** Added Seerr post-install manual configuration steps to notify the user how to extract the SQLite-based API Key and insert it into the environment.
+
 ## [1.5.16] - 2026-06-10
 ### Fixed
 - **[Main]** Removed duplicate local `import re` inside `invoke_token_wizard` that was causing an `UnboundLocalError` when Python attempted to access the global name before executing the local import statement.
