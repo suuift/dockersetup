@@ -279,8 +279,7 @@ if %errorlevel%==0 (
     timeout /t 1 /nobreak >nul
     goto loop
 )
-powershell -Command "Start-Process -FilePath '{installer_path}' -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Verb RunAs -Wait"
-start "" "{target_exe_path}"
+powershell -Command "Start-Process -FilePath '{installer_path}' -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Verb RunAs -Wait; Start-Process -FilePath '{target_exe_path}'"
 del "%~f0"
 """
         with open(bat_path, "w") as bat_file:

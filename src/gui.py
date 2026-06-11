@@ -230,6 +230,13 @@ class DockerSetupGUI(ctk.CTk):
         y = parent_y + (parent_height // 2) - (height // 2)
         dialog.transient(self)
         dialog.geometry(f"{width}x{height}+{x}+{y}")
+        
+        dialog.deiconify()
+        dialog.update_idletasks()
+        try:
+            dialog.grab_set()
+        except Exception:
+            pass
 
     def load_services_registry(self):
         try:
@@ -383,7 +390,6 @@ class DockerSetupGUI(ctk.CTk):
             dialog = ctk.CTkToplevel(self)
             dialog.title("Existing Deployment Detected")
             dialog.resizable(False, False)
-            dialog.grab_set()
             self.center_over_parent(dialog, 500, 320)
             
             lbl_title = ctk.CTkLabel(dialog, text="Existing Deployment Found", font=ctk.CTkFont(size=18, weight="bold"))
@@ -735,7 +741,6 @@ class DockerSetupGUI(ctk.CTk):
             dialog = ctk.CTkToplevel(self)
             dialog.title("Complete Your Stack Add-ons")
             dialog.resizable(False, False)
-            dialog.grab_set()
             self.center_over_parent(dialog, 500, 250)
             
             lbl_title = ctk.CTkLabel(dialog, text="Complete Your Stack?", font=ctk.CTkFont(size=18, weight="bold"))
