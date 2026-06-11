@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.34] - 2026-06-11
+### Fixed
+- **[CI/CD]** Added PyInstaller hidden import declarations for `tkinter`, `customtkinter`, and `darkdetect` to ensure graphical rendering engines (Tcl/Tk) are fully packaged into standalone binaries without crashing headless Linux servers.
+
 ## [1.5.33] - 2026-06-11
 ### Fixed
 - **[CI/CD]** Added CustomTkinter theme assets bundling to the PyInstaller build target configurations on both local compilation tools and GitHub Actions workflow runners.

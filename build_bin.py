@@ -16,6 +16,9 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
         "--add-data", f"resources/services.yml{data_sep}resources",
         "--add-data", f"resources/templates.yml{data_sep}resources",
         "--add-data", f"{customtkinter_path}{data_sep}customtkinter",
+        "--hidden-import", "tkinter",
+        "--hidden-import", "customtkinter",
+        "--hidden-import", "darkdetect",
     ]
     
     # Enable automatic Administrator elevation and set icon for Windows builds
@@ -102,7 +105,7 @@ def run_docker_linux_build(project_root: str):
             "apt-get update && apt-get install -y binutils && "
             "pip install --no-cache-dir pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal customtkinter darkdetect && "
             "customtkinter_path=$(python -c 'import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))') && "
-            "pyinstaller --onefile --clean --add-data 'resources/services.yml:resources' --add-data 'resources/templates.yml:resources' --add-data \"$customtkinter_path:customtkinter\" dockersetup.py"
+            "pyinstaller --onefile --clean --add-data 'resources/services.yml:resources' --add-data 'resources/templates.yml:resources' --add-data \"$customtkinter_path:customtkinter\" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect dockersetup.py"
         )
     ]
     

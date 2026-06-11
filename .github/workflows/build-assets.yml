@@ -45,14 +45,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           customtkinter_path=$(python -c "import customtkinter, os; print(os.path.dirname(customtkinter.__file__))")
-          pyinstaller --onefile --clean --add-data "resources/services.yml:resources" --add-data "resources/templates.yml:resources" --add-data "$customtkinter_path:customtkinter" dockersetup.py
+          pyinstaller --onefile --clean --add-data "resources/services.yml:resources" --add-data "resources/templates.yml:resources" --add-data "$customtkinter_path:customtkinter" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect dockersetup.py
 
       - name: Build Binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $customtkinter_path = python -c "import customtkinter, os; print(os.path.dirname(customtkinter.__file__))"
-          pyinstaller --onefile --clean --add-data "resources/services.yml;resources" --add-data "resources/templates.yml;resources" --add-data "${customtkinter_path};customtkinter" --uac-admin --icon "resources/app.ico" dockersetup.py
+          pyinstaller --onefile --clean --add-data "resources/services.yml;resources" --add-data "resources/templates.yml;resources" --add-data "${customtkinter_path};customtkinter" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect --uac-admin --icon "resources/app.ico" dockersetup.py
 
       - name: Build Setup Installer (Windows)
         if: runner.os == 'Windows'
