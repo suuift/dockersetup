@@ -26,37 +26,40 @@ def parse_version(v_str: str):
     except ValueError:
         return [0, 0, 0]
 
-def invoke_self_update(project_root: str) -> bool:
+def invoke_self_update(project_root: str, is_gui: bool = False) -> bool:
     # Check if running in a Git repository (Source Mode)
     if os.path.exists(os.path.join(project_root, ".git")):
-        console.print("--- Checking for Git Source Updates ---", style="cyan")
+        # If in GUI mode, skip git console print statements to avoid unnecessary noise
+        if not is_gui:
+            console.print("--- Checking for Git Source Updates ---", style="cyan")
         
         # Check if git command exists
         git_exists = shutil.which("git") is not None
         if not git_exists:
-            write_log("Git is not installed. We need it to check for script updates.", level="WARN")
-            install = safe_confirm("Would you like to install Git now via winget/package manager?", default=False)
-            if install:
-                if sys.platform == "win32" and shutil.which("winget"):
-                    console.print("Installing Git via winget...", style="grey50")
-                    ret = subprocess.run(
-                        [
-                            "winget", "install", 
-                            "--id", "Git.Git", 
-                            "-e", 
-                            "--source", "winget", 
-                            "--accept-package-agreements", 
-                            "--accept-source-agreements"
-                        ],
-                        env=get_clean_env()
-                    )
-                    if ret.returncode != 0:
-                        write_log("Winget install failed. Please install Git manually from https://git-scm.com/", level="ERROR")
-                        return False
-                    write_log("Git installed. Please restart this script to check for updates.", level="INFO")
-                else:
-                    write_log("Please install Git manually from https://git-scm.com/ or your system package manager.", level="WARN")
-                return False
+            if not is_gui:
+                write_log("Git is not installed. We need it to check for script updates.", level="WARN")
+                install = safe_confirm("Would you like to install Git now via winget/package manager?", default=False)
+                if install:
+                    if sys.platform == "win32" and shutil.which("winget"):
+                        console.print("Installing Git via winget...", style="grey50")
+                        ret = subprocess.run(
+                            [
+                                "winget", "install", 
+                                "--id", "Git.Git", 
+                                "-e", 
+                                "--source", "winget", 
+                                "--accept-package-agreements", 
+                                "--accept-source-agreements"
+                            ],
+                            env=get_clean_env()
+                        )
+                        if ret.returncode != 0:
+                            write_log("Winget install failed. Please install Git manually from https://git-scm.com/", level="ERROR")
+                            return False
+                        write_log("Git installed. Please restart this script to check for updates.", level="INFO")
+                    else:
+                        write_log("Please install Git manually from https://git-scm.com/ or your system package manager.", level="WARN")
+                    return False
             return False
 
         try:
@@ -66,13 +69,25 @@ def invoke_self_update(project_root: str) -> bool:
             
             if "Your branch is behind" in status_proc.stdout:
                 write_log("A new version of the Docker Setup Suite is available.", level="WARN")
-                apply = safe_confirm("Update and restart now?", default=True)
+                if is_gui:
+                    import tkinter as tk
+                    from tkinter import messagebox
+                    root = tk.Tk()
+                    root.withdraw()
+                    apply = messagebox.askyesno(
+                        "Update Available",
+                        "A new version of the Docker Setup Suite is available.\n\nUpdate and restart now?"
+                    )
+                    root.destroy()
+                else:
+                    apply = safe_confirm("Update and restart now?", default=True)
                 if apply:
                     console.print("Updating scripts...", style="grey50")
                     subprocess.run(["git", "pull"], cwd=project_root, env=get_clean_env())
                     return True # Needs restart
             else:
-                write_log("Scripts are up to date.", level="INFO")
+                if not is_gui:
+                    write_log("Scripts are up to date.", level="INFO")
         except Exception as e:
             write_log(f"Failed to check for updates: {str(e)}", level="WARN")
         return False
@@ -88,7 +103,8 @@ def invoke_self_update(project_root: str) -> bool:
             except OSError:
                 pass  # May still be locked on Windows; silently skip
 
-        console.print("--- Checking for Compiled Binary Updates ---", style="cyan")
+        if not is_gui:
+            console.print("--- Checking for Compiled Binary Updates ---", style="cyan")
         try:
             # Check the GitHub Releases API for updates
             repo = "suuift/dockersetup"
@@ -132,7 +148,18 @@ def invoke_self_update(project_root: str) -> bool:
                         write_log(f"Could not find binary asset '{expected_asset_name}' in the latest release.", level="WARN")
                         return False
                     
-                    apply = safe_confirm(f"Download and upgrade to {latest_tag} now?", default=True)
+                    if is_gui:
+                        import tkinter as tk
+                        from tkinter import messagebox
+                        root = tk.Tk()
+                        root.withdraw()
+                        apply = messagebox.askyesno(
+                            "Update Available",
+                            f"A new compiled release ({latest_tag}) is available.\nCurrent version: v{VERSION}\n\nDownload and upgrade now?"
+                        )
+                        root.destroy()
+                    else:
+                        apply = safe_confirm(f"Download and upgrade to {latest_tag} now?", default=True)
                     if apply:
                         if sys.platform == "win32" and is_installed:
                             perform_installer_update(download_url, sys.executable)
@@ -140,7 +167,8 @@ def invoke_self_update(project_root: str) -> bool:
                             perform_binary_swap(download_url, sys.executable)
                         return True # Restart scheduled by updater
                 else:
-                    write_log(f"Binary is up to date (v{VERSION}).", level="INFO")
+                    if not is_gui:
+                        write_log(f"Binary is up to date (v{VERSION}).", level="INFO")
                     
         except urllib.error.HTTPError as e:
             if e.code == 403:

@@ -33,6 +33,12 @@ def get_project_root() -> str:
 def get_deploy_dir() -> str:
     if os.getenv("DEPLOY_DIR"):
         return resolve_path_slash(os.getenv("DEPLOY_DIR"))
+    if getattr(sys, "frozen", False):
+        if sys.platform == "win32":
+            return "C:/docker"
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            return "/opt/docker"
+        return resolve_path_slash(os.path.expanduser("~/docker"))
     return get_project_root()
 
 def get_resource_path(filename: str) -> str:
