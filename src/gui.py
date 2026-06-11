@@ -7,6 +7,7 @@ import socket
 import platform
 import subprocess
 import shutil
+import re
 import tkinter as tk
 from tkinter import filedialog
 import customtkinter as ctk
@@ -71,8 +72,14 @@ class DockerSetupGUI(ctk.CTk):
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
         
+        # Force Headless execution mode for background modules to bypass interactive questionary prompts
+        os.environ["DS_HEADLESS"] = "true"
+        
         # State & Logger
         self.log_queue = queue.Queue()
+        from src.utils.logger import set_gui_log_callback
+        set_gui_log_callback(self.log_message)
+        
         self.registry = []
         self.selected_services = set()
         self.env_vars = {}
@@ -1047,13 +1054,18 @@ class DockerSetupGUI(ctk.CTk):
         try:
             while True:
                 msg = self.log_queue.get_nowait()
-                self.log_text.insert(tk.END, msg + "\n")
-                self.log_text.see(tk.END)
                 
-                if hasattr(self, "logs_textbox"):
-                    show_verbose = self.chk_verbose_logs.get()
-                    is_debug = "[DEBUG]" in msg or "[TRACE]" in msg or msg.startswith("[DEBUG]") or msg.startswith("[TRACE]")
-                    if show_verbose or not is_debug:
+                # Check verbose setting for deploy tab
+                show_verbose = self.var_verbose.get() if hasattr(self, "var_verbose") else False
+                is_debug = "[DEBUG]" in msg or "[TRACE]" in msg or msg.startswith("[DEBUG]") or msg.startswith("[TRACE]")
+                
+                if show_verbose or not is_debug:
+                    self.log_text.insert(tk.END, msg + "\n")
+                    self.log_text.see(tk.END)
+                
+                if hasattr(self, "logs_textbox") and self.logs_textbox.winfo_exists():
+                    show_verbose_logs = self.chk_verbose_logs.get()
+                    if show_verbose_logs or not is_debug:
                         self.logs_textbox.configure(state="normal")
                         self.logs_textbox.insert(tk.END, msg + "\n")
                         self.logs_textbox.configure(state="disabled")
@@ -1267,7 +1279,8 @@ class DockerSetupGUI(ctk.CTk):
                 lbl_stat = ctk.CTkLabel(scroll, text=status_text, text_color=status_color, font=ctk.CTkFont(weight="bold"))
                 lbl_stat.grid(row=row_idx, column=1, padx=10, pady=5, sticky="w")
                 
-                url = f"http://localhost:{port}" if port > 0 else ""
+                non_ui_services = {"flaresolverr", "hkserver", "mariadb", "postgresql", "mongodb", "redis", "db"}
+                url = f"http://localhost:{port}" if port > 0 and entry.key not in non_ui_services else ""
                 
                 def open_link(u=url):
                     if u:
@@ -1413,6 +1426,11 @@ class DockerSetupGUI(ctk.CTk):
             return
         from src.utils.logger import get_log_path
         log_path = get_log_path()
+        if os.path.exists(log_path) and os.path.isdir(log_path):
+            try:
+                shutil.rmtree(log_path)
+            except OSError:
+                pass
         if not os.path.exists(log_path):
             self.logs_textbox.configure(state="normal")
             self.logs_textbox.delete("1.0", tk.END)

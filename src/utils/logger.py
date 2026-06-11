@@ -2,6 +2,7 @@ import os
 import sys
 import time
 import subprocess
+import shutil
 from datetime import datetime
 from rich.console import Console
 import questionary
@@ -11,6 +12,7 @@ console = Console()
 
 _custom_log_path = None
 _debug_logging = False
+_gui_log_callback = None
 
 def set_log_path(path: str):
     global _custom_log_path
@@ -21,6 +23,10 @@ def enable_debug_logging():
     global _debug_logging
     _debug_logging = True
     os.environ["DEBUG_LOGGING"] = "true"
+
+def set_gui_log_callback(callback):
+    global _gui_log_callback
+    _gui_log_callback = callback
 
 def get_log_path() -> str:
     if os.getenv("SETUP_LOG_DIR"):
@@ -33,12 +39,19 @@ def get_log_path() -> str:
     return os.path.abspath(os.path.join(base_path, "setup.log"))
 
 def write_log(message: str, level: str = "INFO", clear: bool = False):
-    global _debug_logging
+    global _debug_logging, _gui_log_callback
     if os.getenv("DEBUG_LOGGING") == "true":
         _debug_logging = True
 
     log_path = get_log_path()
     base_path = os.path.dirname(log_path)
+
+    # Resolve directory collision where setup.log might be a folder
+    if os.path.exists(log_path) and os.path.isdir(log_path):
+        try:
+            shutil.rmtree(log_path)
+        except OSError:
+            pass
 
     if clear and os.path.exists(log_path):
         try:
@@ -60,6 +73,13 @@ def write_log(message: str, level: str = "INFO", clear: bool = False):
             break
         except OSError:
             time.sleep(0.1)
+
+    # Trigger GUI log callback if set
+    if _gui_log_callback:
+        try:
+            _gui_log_callback(log_entry.strip())
+        except Exception:
+            pass
 
     if level != "TRACE":
         if level == "INFO":

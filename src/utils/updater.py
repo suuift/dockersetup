@@ -279,7 +279,7 @@ if %errorlevel%==0 (
     timeout /t 1 /nobreak >nul
     goto loop
 )
-start /wait "" "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES
+powershell -Command "Start-Process -FilePath '{installer_path}' -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES' -Verb RunAs -Wait"
 start "" "{target_exe_path}"
 del "%~f0"
 """
