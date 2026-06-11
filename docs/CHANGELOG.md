@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.37] - 2026-06-11
+### Fixed
+- **[GUI]** Resolved NameError and TypeError during deployment execution due to missing module imports (`setup_directories` and `setup_networks`) and incorrect parameter signatures for directory, network, compose, and deploy workers.
+- **[GUI]** Corrected `save_current_selections` logic to save all state attributes within a single metadata dictionary argument using `set_metadata` instead of using non-existent/invalid `save_metadata` function and two-argument `set_metadata` calls.
+
 ## [1.5.36] - 2026-06-11
 ### Fixed
 - **[Installer]** Added `shellexec` flag to the Inno Setup run configurations to allow standard user installers to spawn UAC-elevated GUI applications cleanly on completion without throwing Error 740.
