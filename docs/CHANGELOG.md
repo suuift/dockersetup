@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.45] - 2026-06-11
+### Added
+- **[GUI]** Implemented debounced dynamic window auto-scaling on `<Configure>` resize events to adjust widget scale smoothly when window bounds stabilize, preventing rendering recursions.
+- **[GUI]** Increased the Linux high-DPI startup scaling baseline to a minimum factor of `1.25` for improved readability out-of-the-box.
+
 ## [1.5.44] - 2026-06-11
 ### Fixed
 - **[Updater]** Cleared the `_MEIPASS` internal environment variable in `get_clean_env` before relaunching the application, preventing PyInstaller path pollution from tricking the bootloader into reusing outdated temporary folders and failing to load GUI libraries.
