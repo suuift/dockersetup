@@ -59,9 +59,27 @@ class DockerSetupGUI(ctk.CTk):
     def get_linux_dpi_scale(self) -> float:
         try:
             tk_scale = self.tk.call('tk', 'scaling')
-            return tk_scale / 1.33333333
+            detected = tk_scale / 1.33333333
+            return max(detected, 1.25)
         except Exception:
-            return 1.0
+            return 1.25
+
+    def on_window_resize_event(self, event):
+        if event.widget != self:
+            return
+        if self.resize_timer:
+            self.after_cancel(self.resize_timer)
+        self.resize_timer = self.after(200, self.apply_dynamic_resize_scale)
+
+    def apply_dynamic_resize_scale(self):
+        current_width = self.winfo_width()
+        if abs(self.last_scaled_width - current_width) < 15:
+            return
+        self.last_scaled_width = current_width
+        width_ratio = current_width / self.baseline_width
+        base_scale = self.get_linux_dpi_scale() if sys.platform.startswith("linux") else 1.0
+        new_scale = max(base_scale, min(base_scale * width_ratio, 1.8))
+        ctk.set_widget_scaling(new_scale)
 
     def __init__(self):
         super().__init__()
@@ -84,6 +102,11 @@ class DockerSetupGUI(ctk.CTk):
         self.geometry("1000x650")
         self.minsize(900, 600)
         
+        # Scaling variables
+        self.resize_timer = None
+        self.baseline_width = 1000
+        self.last_scaled_width = 1000
+        
         # Determine theme based on system setting
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
@@ -94,8 +117,12 @@ class DockerSetupGUI(ctk.CTk):
                 scale = self.get_linux_dpi_scale()
                 ctk.set_widget_scaling(scale)
                 ctk.set_window_scaling(scale)
+                self.last_scaled_width = int(1000 * scale)
+                self.baseline_width = int(1000 * scale)
             except Exception:
                 pass
+
+        self.bind("<Configure>", self.on_window_resize_event)
 
         # Force Headless execution mode for background modules to bypass interactive questionary prompts
         os.environ["DS_HEADLESS"] = "true"
