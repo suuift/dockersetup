@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.41] - 2026-06-11
+### Fixed
+- **[GUI]** Imported `get_clean_env` to resolve NameError crash during full system reset operations.
+- **[GUI]** Moved `.env` file writing sequence before `setup_directories()` in the deployment worker thread, resolving fresh install and reset folder structure creation failures.
+- **[GUI]** Initialized default log paths on startup and during directory browser navigation, enabling logs to display correctly in the Sidebar Logs tab from the start.
+- **[GUI]** Refactored the PLEX_CLAIM credentials layout to include an interactive "Get Token" button that opens `plex.tv/claim` in the system browser.
+- **[GUI]** Limited the Advanced Mode Left checklist pane to a single column to prevent horizontal text truncation on service ports and names.
+
 ## [1.5.40] - 2026-06-11
 ### Fixed
 - **[Updater]** Swapped `sys.exit(0)` with `os._exit(0)` when spawning the background updater on Windows to prevent the script's `finally` block from trapping the thread in a console input prompt, ensuring the update installer executes and restarts the application automatically.

@@ -28,7 +28,7 @@ try:
 except Exception:
     pass
 
-from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
+from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path, get_clean_env
 from src.utils.logger import set_log_path, write_log
 from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
@@ -129,6 +129,10 @@ class DockerSetupGUI(ctk.CTk):
         self.env_frame = self.create_env_view()
         self.deploy_frame = self.create_deploy_view()
         self.logs_view_frame = self.create_logs_view()
+        
+        # Initialize default log path on startup
+        initial_deploy = get_deploy_dir()
+        set_log_path(os.path.join(initial_deploy, "logs"))
         
         # Launch Welcome Frame first
         self.show_welcome_frame()
@@ -251,6 +255,7 @@ class DockerSetupGUI(ctk.CTk):
             
         d_dir = os.path.normpath(d_dir)
         os.environ["DEPLOY_DIR"] = d_dir
+        set_log_path(os.path.join(d_dir, "logs"))
         
         # 1. Handle directory creation
         if not os.path.exists(d_dir):
@@ -425,6 +430,7 @@ class DockerSetupGUI(ctk.CTk):
             self.entry_deploy_path.delete(0, tk.END)
             self.entry_deploy_path.insert(0, normalized)
             os.environ["DEPLOY_DIR"] = normalized
+            set_log_path(os.path.join(normalized, "logs"))
 
     # ==========================================
     # 2. SERVICES FRAME CREATION
@@ -570,7 +576,7 @@ class DockerSetupGUI(ctk.CTk):
             
             self.services_scroll = ctk.CTkScrollableFrame(left_frame)
             self.services_scroll.grid(row=1, column=0, sticky="nsew")
-            self.services_scroll.grid_columnconfigure((0, 1), weight=1)
+            self.services_scroll.grid_columnconfigure(0, weight=1)
             
             # Right Pane
             right_frame = ctk.CTkFrame(self.services_container, fg_color="transparent")
@@ -584,14 +590,13 @@ class DockerSetupGUI(ctk.CTk):
             self.selected_scroll = ctk.CTkScrollableFrame(right_frame)
             self.selected_scroll.grid(row=1, column=0, sticky="nsew")
             
-            # Render left checkboxes
+            # Render left checkboxes in a single column to prevent horizontal truncation
             current_row = 0
             for cat_name, entries in sorted(categories.items()):
                 lbl_cat = ctk.CTkLabel(self.services_scroll, text=cat_name, font=ctk.CTkFont(size=13, weight="bold"), text_color=["#1F6AA5", "#3B8ED0"])
-                lbl_cat.grid(row=current_row, column=0, columnspan=2, pady=(12, 4), sticky="w")
+                lbl_cat.grid(row=current_row, column=0, pady=(12, 4), sticky="w")
                 current_row += 1
                 
-                col_idx = 0
                 for entry in entries:
                     chk = ctk.CTkCheckBox(
                         self.services_scroll, 
@@ -599,14 +604,8 @@ class DockerSetupGUI(ctk.CTk):
                         variable=self.chk_vars[entry.key], 
                         command=self.on_checkbox_toggle
                     )
-                    chk.grid(row=current_row, column=col_idx, padx=5, pady=5, sticky="w")
+                    chk.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
                     self.chk_buttons[entry.key] = chk
-                    
-                    col_idx += 1
-                    if col_idx > 1:
-                         col_idx = 0
-                         current_row += 1
-                if col_idx > 0:
                     current_row += 1
             self.on_checkbox_toggle()
 
@@ -842,7 +841,29 @@ class DockerSetupGUI(ctk.CTk):
         row_idx += 1
         
         if "plex" in self.selected_services:
-            add_standard_row("PLEX_CLAIM", "Plex Claim Token (plex.tv/claim)", "")
+            lbl_plex = ctk.CTkLabel(self.env_scroll, text="PLEX_CLAIM:", font=ctk.CTkFont(size=12, weight="bold"))
+            lbl_plex.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+            
+            plex_frame = ctk.CTkFrame(self.env_scroll, fg_color="transparent")
+            plex_frame.grid(row=row_idx, column=1, padx=10, pady=5, sticky="ew")
+            
+            val = saved_env.get("PLEX_CLAIM", "")
+            entry_plex = ctk.CTkEntry(plex_frame, placeholder_text="Plex Claim Token (plex.tv/claim)", width=250)
+            entry_plex.insert(0, val)
+            entry_plex.grid(row=0, column=0, sticky="ew")
+            
+            def open_plex_claim():
+                import webbrowser
+                try:
+                    webbrowser.open("https://plex.tv/claim")
+                except Exception:
+                    pass
+                    
+            btn_plex = ctk.CTkButton(plex_frame, text="Get Token", width=70, command=open_plex_claim)
+            btn_plex.grid(row=0, column=1, padx=(10, 0))
+            
+            self.env_entries["PLEX_CLAIM"] = entry_plex
+            row_idx += 1
             
         if "tailscale" in self.selected_services:
             add_standard_row("TS_AUTHKEY", "Tailscale Auth Key", "")
@@ -1100,7 +1121,7 @@ class DockerSetupGUI(ctk.CTk):
             self.update_step_status("Preflight", "Running", "#FFCC00")
             self.update_progress_bar(0.1)
             self.log_message("[INFO] Starting preflight system validation checks...")
-            set_log_path(os.path.join(deploy_dir, "logs", "setup.log"))
+            set_log_path(os.path.join(deploy_dir, "logs"))
             run_system_preflight()
             self.update_step_status("Preflight", "Completed", "green")
             
@@ -1108,19 +1129,23 @@ class DockerSetupGUI(ctk.CTk):
             self.update_step_status("Dirs", "Running", "#FFCC00")
             self.update_progress_bar(0.25)
             self.log_message("[INFO] Constructing deployment folder structures...")
+            
+            # Write environment variables first so that setup_directories() can read them correctly
             metadata = get_metadata()
+            env_vars = metadata.get("env_vars", {})
+            env_path = os.path.normpath(os.path.join(deploy_dir, ".env"))
+            os.makedirs(os.path.dirname(env_path), exist_ok=True)
+            with open(env_path, "w", encoding="utf-8") as f:
+                for k, v in env_vars.items():
+                    f.write(f"{k}={v}\n")
+            
             setup_directories()
             self.update_step_status("Dirs", "Completed", "green")
             
             # 3. Environment Secrets and Networks
             self.update_step_status("Network", "Running", "#FFCC00")
             self.update_progress_bar(0.4)
-            self.log_message("[INFO] Writing environment variables and constructing secure Docker networks...")
-            env_vars = metadata.get("env_vars", {})
-            env_path = os.path.normpath(os.path.join(deploy_dir, ".env"))
-            with open(env_path, "w", encoding="utf-8") as f:
-                for k, v in env_vars.items():
-                    f.write(f"{k}={v}\n")
+            self.log_message("[INFO] Constructing secure Docker networks...")
             setup_networks()
             self.update_step_status("Network", "Completed", "green")
             
