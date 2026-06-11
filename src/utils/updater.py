@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.39"
+VERSION = "1.5.40"
 
 def parse_version(v_str: str):
     """
@@ -296,7 +296,7 @@ del "%~f0"
         )
         
         # 5. Exit immediately to release file lock on target_exe_path
-        sys.exit(0)
+        os._exit(0)
         
     except Exception as e:
         write_log(f"Failed to execute installer update: {str(e)}", level="ERROR")

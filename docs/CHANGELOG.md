@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.40] - 2026-06-11
+### Fixed
+- **[Updater]** Swapped `sys.exit(0)` with `os._exit(0)` when spawning the background updater on Windows to prevent the script's `finally` block from trapping the thread in a console input prompt, ensuring the update installer executes and restarts the application automatically.
+
 ## [1.5.39] - 2026-06-11
 ### Added
 - **[GUI]** Implemented a dedicated sidebar Logs panel showing full session logs with real-time queue redirection and verbose log level checkbox filter.
