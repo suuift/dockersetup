@@ -492,7 +492,7 @@ def configure_environment() -> bool:
     # Compile environment variables
     # Sanitize environment variables quotes (Edge Case 17)
     vars_dict = {
-        "TZ": tz, "PUID": puid, "PGID": pgid, "DOCKERDIR": docker_dir, "DRIVEPOOL": drive_pool,
+        "TZ": tz, "PUID": puid, "PGID": pgid, "DOCKERDIR": docker_dir, "DATADRIVE": drive_pool,
         "EXTRA_MOUNTS": extra_mounts, "USERDIR": docker_dir, "MYSQL_ROOT_PASSWORD": db_root_pass,
         "MYSQL_USER": "mediauser", "MYSQL_PASSWORD": db_pass, "HTTP_USERNAME": http_user,
         "HTTP_PASSWORD": http_pass, "PLEX_CLAIM": plex_claim, "CF_API_TOKEN": cf_token,

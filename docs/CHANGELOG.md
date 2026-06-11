@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
 - **[GUI]** Added a real-time log queue redirection callback interface to `logger.py` to fix verbose logs toggle behavior in both text windows.
 - **[GUI]** Added automatic detection and cleanup of logs directory collision at startup and log-loading phases.
 - **[GUI]** Excluded FlareSolverr, database engines, and non-UI companion services from getting a Web UI button in the post-deployment dashboard.
+- **[GUI]** Monkey-patched `darkdetect` theme-checks on Linux to avoid blocking subprocess calls and prevent application crashes.
+- **[GUI]** Implemented dynamic screen scaling auto-detection on Linux using native Tcl DPI metrics, and added a manual UI scaling override dropdown in the sidebar.
+- **[GUI]** Restructured popup dialogues to use a generic, z-indexed `center_over_parent` centering handler.
+- **[GUI]** Restricted sidebar menu navigation to completed wizard steps, locking ahead-of-time step skipping while allowing backward traversal.
+- **[Main]** Renamed `DRIVEPOOL` to `DATADRIVE` completely across environment variables, compose templates, and tests.
 
 ## [1.5.41] - 2026-06-11
 ### Fixed

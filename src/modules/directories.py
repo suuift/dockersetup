@@ -36,7 +36,7 @@ def setup_directories() -> bool:
             if match:
                 k = match.group(1).strip()
                 v = match.group(2).strip()
-                if k in ["DOCKERDIR", "DRIVEPOOL"]:
+                if k in ["DOCKERDIR", "DATADRIVE"]:
                     v = resolve_path_slash(v)
                     # Cross-platform drive letter mapping to standard Unix mount paths
                     if platform.system() != "Windows":
@@ -46,10 +46,10 @@ def setup_directories() -> bool:
                 env_vars[k] = v
 
     docker_dir = env_vars.get("DOCKERDIR")
-    drive_pool = env_vars.get("DRIVEPOOL")
+    drive_pool = env_vars.get("DATADRIVE")
 
     if not docker_dir or not drive_pool:
-        raise ValueError("DOCKERDIR or DRIVEPOOL missing in .env configurations.")
+        raise ValueError("DOCKERDIR or DATADRIVE missing in .env configurations.")
 
     metadata = get_metadata()
     selected = metadata.get("selected_services", [])

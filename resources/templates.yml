@@ -55,9 +55,9 @@ sonarr: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/sonarr/config:/config
-      - $DRIVEPOOL/tv:/tv
-      - $DRIVEPOOL/anime:/anime
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/tv:/tv
+      - $DATADRIVE/anime:/anime
+      - $DATADRIVE/downloads:/downloads
     ports:
       - 8989:8989
     environment:
@@ -70,8 +70,8 @@ radarr: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/radarr/config:/config
-      - $DRIVEPOOL/movies:/movies
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/movies:/movies
+      - $DATADRIVE/downloads:/downloads
     ports:
       - 7878:7878
     environment:
@@ -84,8 +84,8 @@ lidarr: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/lidarr/config:/config
-      - $DRIVEPOOL/music:/music
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/music:/music
+      - $DATADRIVE/downloads:/downloads
     ports:
       - 8686:8686
     environment:
@@ -98,8 +98,8 @@ bazarr: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/bazarr/config:/config
-      - $DRIVEPOOL/movies:/movies
-      - $DRIVEPOOL/tv:/tv
+      - $DATADRIVE/movies:/movies
+      - $DATADRIVE/tv:/tv
     ports:
       - 6767:6767
     environment:
@@ -137,7 +137,7 @@ qbittorrent: |
       - WEBUI_PORT=8081
     volumes:
       - $DOCKERDIR/appdata/qbit/config:/config
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/downloads:/downloads
     ports:
       - 8081:8081
       - 6881:6881
@@ -150,8 +150,8 @@ sabnzbd: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/sabnzbd/config:/config
-      - $DRIVEPOOL/downloads:/downloads
-      - $DRIVEPOOL/downloads/incomplete:/incompletedownloads
+      - $DATADRIVE/downloads:/downloads
+      - $DATADRIVE/downloads/incomplete:/incompletedownloads
     ports:
       - 8080:8080
     environment:
@@ -171,7 +171,7 @@ qbittorrent-vpn: |
       - 6881:6881/udp
     volumes:
       - $DOCKERDIR/appdata/qbit-vpn/config:/config
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/downloads:/downloads
     environment:
       - VPN_ENABLED=yes
       - VPN_USER=$VPN_USER
@@ -233,11 +233,11 @@ plex: |
       - 32469:32469
     volumes:
       - $DOCKERDIR/appdata/plex/config:/config
-      - $DRIVEPOOL/tv:/tv
-      - $DRIVEPOOL/movies:/movies
-      - $DRIVEPOOL/anime:/anime
-      - $DRIVEPOOL/music:/music
-      - $DRIVEPOOL/audiobooks:/audiobooks
+      - $DATADRIVE/tv:/tv
+      - $DATADRIVE/movies:/movies
+      - $DATADRIVE/anime:/anime
+      - $DATADRIVE/music:/music
+      - $DATADRIVE/audiobooks:/audiobooks
 
 jellyfin: |
   jellyfin:
@@ -250,12 +250,12 @@ jellyfin: |
       - 8096:8096
     volumes:
       - $DOCKERDIR/appdata/jellyfin/config:/config
-      - $DRIVEPOOL/tv:/tv
-      - $DRIVEPOOL/movies:/movies
-      - $DRIVEPOOL/anime:/anime
-      - $DRIVEPOOL/music:/music
-      - $DRIVEPOOL/audiobooks:/audiobooks
-      - $DRIVEPOOL/books:/books
+      - $DATADRIVE/tv:/tv
+      - $DATADRIVE/movies:/movies
+      - $DATADRIVE/anime:/anime
+      - $DATADRIVE/music:/music
+      - $DATADRIVE/audiobooks:/audiobooks
+      - $DATADRIVE/books:/books
 
 watchtower: |
   watchtower:
@@ -288,7 +288,7 @@ homepage: |
       - $DOCKERDIR/appdata/homepage/config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock
       - $USERDIR:/c
-      - $DRIVEPOOL:/h
+      - $DATADRIVE:/h
     environment:
       <<: *default-tz-puid-pgid
 {{HOMEPAGE_MAPPINGS}}
@@ -537,7 +537,7 @@ cloudcmd: |
       - CLOUDCMD_USERNAME=$HTTP_USERNAME
       - CLOUDCMD_PASSWORD=$HTTP_PASSWORD
     volumes:
-      - $DRIVEPOOL:/media_pool
+      - $DATADRIVE:/media_pool
       - $DOCKERDIR:/docker_data
 {{DYNAMIC_MOUNTS}}
     ports:
@@ -555,7 +555,7 @@ filebrowser: |
     volumes:
       - $DOCKERDIR/appdata/filebrowser/config/filebrowser.db:/database/filebrowser.db
       - $DOCKERDIR/appdata/filebrowser/config/settings.json:/config/settings.json
-      - $DRIVEPOOL:/srv/Media
+      - $DATADRIVE:/srv/Media
       - $DOCKERDIR:/srv/DockerData
 {{DYNAMIC_MOUNTS}}
     ports:
@@ -570,7 +570,7 @@ syncthing: |
       <<: *default-tz-puid-pgid
     volumes:
       - $DOCKERDIR/appdata/syncthing/config:/config
-      - $DRIVEPOOL/music:/data
+      - $DATADRIVE/music:/data
     ports:
       - 8384:8384
       - 22000:22000/tcp
@@ -602,7 +602,7 @@ navidrome: |
       - TZ=$TZ
     volumes:
       - $DOCKERDIR/appdata/navidrome/data:/data
-      - $DRIVEPOOL/music:/music:ro
+      - $DATADRIVE/music:/music:ro
     ports:
       - 4533:4533
 
@@ -618,8 +618,8 @@ slskd: |
       - SLSKD_SLSK_LISTEN_PORT=50300
     volumes:
       - $DOCKERDIR/appdata/slskd/config:/app/config
-      - $DRIVEPOOL/music:/app/music
-      - $DRIVEPOOL/downloads/slskd:/app/downloads
+      - $DATADRIVE/music:/app/music
+      - $DATADRIVE/downloads/slskd:/app/downloads
     ports:
       - 50300:50300
       - 5030:5030
@@ -633,8 +633,8 @@ mylar: |
       <<: *default-tz-puid-pgid
     volumes:
       - $DOCKERDIR/appdata/mylar/config:/config
-      - $DRIVEPOOL/comics:/comics
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/comics:/comics
+      - $DATADRIVE/downloads:/downloads
     ports:
       - 8090:8090
 
@@ -647,9 +647,9 @@ readarr: |
       <<: *default-tz-puid-pgid
     volumes:
       - $DOCKERDIR/appdata/readarr/config:/config
-      - $DRIVEPOOL/books:/books
-      - $DRIVEPOOL/audiobooks:/audiobooks
-      - $DRIVEPOOL/downloads:/downloads
+      - $DATADRIVE/books:/books
+      - $DATADRIVE/audiobooks:/audiobooks
+      - $DATADRIVE/downloads:/downloads
     ports:
       - 8787:8787
 
@@ -675,7 +675,7 @@ kopia: |
       - $DOCKERDIR/appdata/kopia/cache:/app/cache
       - $DOCKERDIR/appdata/kopia/logs:/app/logs
       - $DOCKERDIR/appdata:/source/appdata:ro
-      - $DRIVEPOOL:/source/media:ro
+      - $DATADRIVE:/source/media:ro
     ports:
       - 51515:51515
     command: >
@@ -704,7 +704,7 @@ immich: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/immich/data:/config
-      - $DRIVEPOOL/photos:/photos
+      - $DATADRIVE/photos:/photos
     ports:
       - 2283:3001
 
@@ -720,9 +720,9 @@ audiobookshelf: |
     volumes:
       - $DOCKERDIR/appdata/audiobookshelf/config:/config
       - $DOCKERDIR/appdata/audiobookshelf/metadata:/metadata
-      - $DRIVEPOOL/audiobooks:/audiobooks
-      - $DRIVEPOOL/books:/books
-      - $DRIVEPOOL/podcasts:/podcasts
+      - $DATADRIVE/audiobooks:/audiobooks
+      - $DATADRIVE/books:/books
+      - $DATADRIVE/podcasts:/podcasts
     ports:
       - 13378:80
 
@@ -733,7 +733,7 @@ paperless: |
     <<: *common-keys-apps
     volumes:
       - $DOCKERDIR/appdata/paperless/data:/data
-      - $DRIVEPOOL/documents:/documents
+      - $DATADRIVE/documents:/documents
     ports:
       - 8010:8000
 

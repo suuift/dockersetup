@@ -81,7 +81,7 @@ def test_directory_setup():
     env_file = os.path.join(TEST_DEPLOY_DIR, ".env")
     save_env_vars({
         "DOCKERDIR": TEST_DEPLOY_DIR,
-        "DRIVEPOOL": os.path.join(TEST_DEPLOY_DIR, "media")
+        "DATADRIVE": os.path.join(TEST_DEPLOY_DIR, "media")
     }, file_path=env_file)
     
     set_metadata({"selected_services": ["sonarr", "radarr"]})
@@ -128,7 +128,7 @@ def test_compose_build_integration():
         "PGID": "1000",
         "TZ": "UTC",
         "DOCKERDIR": TEST_DEPLOY_DIR,
-        "DRIVEPOOL": os.path.join(TEST_DEPLOY_DIR, "media"),
+        "DATADRIVE": os.path.join(TEST_DEPLOY_DIR, "media"),
         "USERDIR": TEST_DEPLOY_DIR,
         "HTTP_USERNAME": "admin",
         "HTTP_PASSWORD": "password"

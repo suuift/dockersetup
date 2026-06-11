@@ -1,5 +1,14 @@
 import os
 import sys
+
+# Prevent darkdetect from executing blocking subprocess calls on Linux
+if sys.platform.startswith("linux"):
+    try:
+        import darkdetect
+        darkdetect.theme = lambda: "Dark"
+    except Exception:
+        pass
+
 import threading
 import queue
 import time
@@ -47,6 +56,13 @@ from src.modules.env_wizard import COMMON_ZONES, detect_timezone, new_random_pas
 import tkinter.ttk as ttk
 
 class DockerSetupGUI(ctk.CTk):
+    def get_linux_dpi_scale(self) -> float:
+        try:
+            tk_scale = self.tk.call('tk', 'scaling')
+            return tk_scale / 1.33333333
+        except Exception:
+            return 1.0
+
     def __init__(self):
         super().__init__()
 
@@ -72,6 +88,15 @@ class DockerSetupGUI(ctk.CTk):
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
         
+        # Detect and apply platform DPI auto-scaling for Linux
+        if sys.platform.startswith("linux"):
+            try:
+                scale = self.get_linux_dpi_scale()
+                ctk.set_widget_scaling(scale)
+                ctk.set_window_scaling(scale)
+            except Exception:
+                pass
+
         # Force Headless execution mode for background modules to bypass interactive questionary prompts
         os.environ["DS_HEADLESS"] = "true"
         
@@ -84,6 +109,9 @@ class DockerSetupGUI(ctk.CTk):
         self.selected_services = set()
         self.env_vars = {}
         
+        # Navigation Locks State
+        self.max_completed_step = 1
+
         # Load service registry
         self.load_services_registry()
         
@@ -122,7 +150,24 @@ class DockerSetupGUI(ctk.CTk):
         self.appearance_mode_label = ctk.CTkLabel(self.sidebar_frame, text="Theme:", anchor="w")
         self.appearance_mode_label.grid(row=7, column=0, padx=20, pady=(10, 0), sticky="w")
         self.appearance_mode_optionemenu = ctk.CTkOptionMenu(self.sidebar_frame, values=["System", "Dark", "Light"], command=self.change_appearance_mode)
-        self.appearance_mode_optionemenu.grid(row=8, column=0, padx=20, pady=(5, 20), sticky="ew")
+        self.appearance_mode_optionemenu.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
+        
+        # UI Scaling Selector
+        self.scaling_label = ctk.CTkLabel(self.sidebar_frame, text="UI Scaling:", anchor="w")
+        self.scaling_label.grid(row=9, column=0, padx=20, pady=(5, 0), sticky="w")
+        self.scaling_optionmenu = ctk.CTkOptionMenu(
+            self.sidebar_frame, 
+            values=["80%", "90%", "100%", "110%", "120%", "150%", "180%", "200%"],
+            command=self.change_scaling_event
+        )
+        self.scaling_optionmenu.grid(row=10, column=0, padx=20, pady=(5, 20), sticky="ew")
+        
+        # Sync scaling menu selection with active scale
+        try:
+            current_scale_pct = f"{int(ctk.get_widget_scaling() * 100)}%"
+            self.scaling_optionmenu.set(current_scale_pct)
+        except Exception:
+            self.scaling_optionmenu.set("100%")
         
         # 3. Main Display Area
         self.main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -141,6 +186,9 @@ class DockerSetupGUI(ctk.CTk):
         initial_deploy = get_deploy_dir()
         set_log_path(os.path.join(initial_deploy, "logs"))
         
+        # Initialize Sidebar button states
+        self.update_navigation_buttons()
+        
         # Launch Welcome Frame first
         self.show_welcome_frame()
         self.run_preflight_checks()
@@ -151,6 +199,37 @@ class DockerSetupGUI(ctk.CTk):
     # Theme toggler
     def change_appearance_mode(self, new_mode: str):
         ctk.set_appearance_mode(new_mode)
+
+    # UI scaling handler
+    def change_scaling_event(self, new_scaling: str):
+        try:
+            scale_val = int(new_scaling.replace("%", "")) / 100
+            ctk.set_widget_scaling(scale_val)
+            ctk.set_window_scaling(scale_val)
+        except Exception:
+            pass
+
+    # Sidebar state manager
+    def update_navigation_buttons(self):
+        self.btn_welcome.configure(state="normal")
+        self.btn_services.configure(state="normal" if self.max_completed_step >= 2 else "disabled")
+        self.btn_env.configure(state="normal" if self.max_completed_step >= 3 else "disabled")
+        self.btn_deploy.configure(state="normal" if self.max_completed_step >= 4 else "disabled")
+        if hasattr(self, "btn_logs"):
+            self.btn_logs.configure(state="normal" if self.max_completed_step >= 5 else "disabled")
+
+    # Generic window centering helper
+    def center_over_parent(self, dialog, width: int, height: int):
+        self.update_idletasks()
+        parent_width = self.winfo_width()
+        parent_height = self.winfo_height()
+        parent_x = self.winfo_x()
+        parent_y = self.winfo_y()
+        
+        x = parent_x + (parent_width // 2) - (width // 2)
+        y = parent_y + (parent_height // 2) - (height // 2)
+        dialog.transient(self)
+        dialog.geometry(f"{width}x{height}+{x}+{y}")
 
     def load_services_registry(self):
         try:
@@ -178,19 +257,34 @@ class DockerSetupGUI(ctk.CTk):
         self.hide_all_frames()
         self.welcome_frame.grid(row=0, column=0, sticky="nsew")
 
-    def show_services_frame(self):
+    def show_services_frame(self, from_next=False):
+        if from_next:
+            self.max_completed_step = max(self.max_completed_step, 2)
+        if self.max_completed_step < 2:
+            return
+        self.update_navigation_buttons()
         self.select_sidebar_button(self.btn_services)
         self.hide_all_frames()
         self.services_frame.grid(row=0, column=0, sticky="nsew")
 
-    def show_env_frame(self):
+    def show_env_frame(self, from_next=False):
+        if from_next:
+            self.max_completed_step = max(self.max_completed_step, 3)
+        if self.max_completed_step < 3:
+            return
+        self.update_navigation_buttons()
         self.select_sidebar_button(self.btn_env)
         self.hide_all_frames()
         # Dynamically build credentials panel based on selected checkboxes
         self.build_dynamic_env_fields()
         self.env_frame.grid(row=0, column=0, sticky="nsew")
 
-    def show_deploy_frame(self):
+    def show_deploy_frame(self, from_next=False):
+        if from_next:
+            self.max_completed_step = max(self.max_completed_step, 4)
+        if self.max_completed_step < 4:
+            return
+        self.update_navigation_buttons()
         self.select_sidebar_button(self.btn_deploy)
         self.hide_all_frames()
         # Save state settings prior to showing deploy summaries
@@ -198,7 +292,12 @@ class DockerSetupGUI(ctk.CTk):
         self.update_deploy_summary()
         self.deploy_frame.grid(row=0, column=0, sticky="nsew")
 
-    def show_logs_frame(self):
+    def show_logs_frame(self, from_next=False):
+        if from_next:
+            self.max_completed_step = max(self.max_completed_step, 5)
+        if self.max_completed_step < 5:
+            return
+        self.update_navigation_buttons()
         self.select_sidebar_button(self.btn_logs)
         self.hide_all_frames()
         self.update_logs_view_content()
@@ -283,13 +382,9 @@ class DockerSetupGUI(ctk.CTk):
             # Show existing deployment menu
             dialog = ctk.CTkToplevel(self)
             dialog.title("Existing Deployment Detected")
-            dialog.geometry("500x320")
             dialog.resizable(False, False)
             dialog.grab_set()
-            
-            x = self.winfo_x() + (self.winfo_width() // 2) - 250
-            y = self.winfo_y() + (self.winfo_height() // 2) - 160
-            dialog.geometry(f"+{x}+{y}")
+            self.center_over_parent(dialog, 500, 320)
             
             lbl_title = ctk.CTkLabel(dialog, text="Existing Deployment Found", font=ctk.CTkFont(size=18, weight="bold"))
             lbl_title.pack(pady=(20, 10))
@@ -305,7 +400,7 @@ class DockerSetupGUI(ctk.CTk):
                 dialog.destroy()
                 # Reload metadata so checkbox selections are loaded properly
                 self.build_services_checkboxes()
-                self.show_services_frame()
+                self.show_services_frame(from_next=True)
                 
             def on_upgrade():
                 dialog.destroy()
@@ -331,11 +426,11 @@ class DockerSetupGUI(ctk.CTk):
             btn_cancel.pack(pady=(5, 20))
         else:
             # New deployment, proceed to selections
-            self.show_services_frame()
+            self.show_services_frame(from_next=True)
 
     def run_fast_upgrade(self, d_dir):
         # We can switch directly to the deploy frame, populate it, and trigger the deployment pipeline
-        self.show_deploy_frame()
+        self.show_deploy_frame(from_next=True)
         self.log_text.delete("1.0", tk.END)
         self.log_message("[INFO] Starting fast template upgrade...")
         self.trigger_deployment_pipeline()
@@ -350,7 +445,7 @@ class DockerSetupGUI(ctk.CTk):
             return
             
         # Run reset in background showing the log console
-        self.show_deploy_frame()
+        self.show_deploy_frame(from_next=True)
         self.log_text.delete("1.0", tk.END)
         self.btn_start_deploy.configure(state="disabled")
         
@@ -639,13 +734,9 @@ class DockerSetupGUI(ctk.CTk):
         if missing_recs:
             dialog = ctk.CTkToplevel(self)
             dialog.title("Complete Your Stack Add-ons")
-            dialog.geometry("500x250")
             dialog.resizable(False, False)
             dialog.grab_set()
-            
-            x = self.winfo_x() + (self.winfo_width() // 2) - 250
-            y = self.winfo_y() + (self.winfo_height() // 2) - 125
-            dialog.geometry(f"+{x}+{y}")
+            self.center_over_parent(dialog, 500, 250)
             
             lbl_title = ctk.CTkLabel(dialog, text="Complete Your Stack?", font=ctk.CTkFont(size=18, weight="bold"))
             lbl_title.pack(pady=(20, 10))
@@ -667,11 +758,11 @@ class DockerSetupGUI(ctk.CTk):
                         self.chk_vars[rec].set(True)
                 self.on_checkbox_toggle()
                 dialog.destroy()
-                self.show_env_frame()
+                self.show_env_frame(from_next=True)
                 
             def on_no():
                 dialog.destroy()
-                self.show_env_frame()
+                self.show_env_frame(from_next=True)
                 
             def on_cancel():
                 dialog.destroy()
@@ -686,7 +777,7 @@ class DockerSetupGUI(ctk.CTk):
             btn_cancel.grid(row=0, column=2, padx=10)
             
         else:
-            self.show_env_frame()
+            self.show_env_frame(from_next=True)
 
     def on_checkbox_toggle(self):
         # Synchronize local list
@@ -739,7 +830,7 @@ class DockerSetupGUI(ctk.CTk):
         btn_back = ctk.CTkButton(nav_buttons, text="Back", width=100, command=self.show_services_frame)
         btn_back.grid(row=0, column=0, sticky="w")
         
-        btn_next = ctk.CTkButton(nav_buttons, text="Next: Deploy Stack", width=180, command=self.show_deploy_frame)
+        btn_next = ctk.CTkButton(nav_buttons, text="Next: Deploy Stack", width=180, command=lambda: self.show_deploy_frame(from_next=True))
         btn_next.grid(row=0, column=1, sticky="e")
         
         return frame
@@ -759,7 +850,7 @@ class DockerSetupGUI(ctk.CTk):
         default_tz = saved_env.get("TZ", detected_tz)
         default_puid = saved_env.get("PUID", os.environ.get("SUDO_UID", "1000"))
         default_pgid = saved_env.get("PGID", os.environ.get("SUDO_GID", "1000"))
-        default_media = saved_env.get("DRIVEPOOL", "D:/Media" if platform.system() == "Windows" else os.path.expanduser("~/media"))
+        default_media = saved_env.get("DATADRIVE", "D:/Media" if platform.system() == "Windows" else os.path.expanduser("~/media"))
         
         row_idx = 0
         
@@ -824,8 +915,8 @@ class DockerSetupGUI(ctk.CTk):
         self.env_entries["HTTP_PASSWORD"] = entry_pass
         row_idx += 1
         
-        # DRIVEPOOL (Media folder directory) with Browse button
-        lbl_media = ctk.CTkLabel(self.env_scroll, text="DRIVEPOOL (Media Folder):", font=ctk.CTkFont(size=12, weight="bold"))
+        # DATADRIVE (Media folder directory) with Browse button
+        lbl_media = ctk.CTkLabel(self.env_scroll, text="DATADRIVE (Media Folder):", font=ctk.CTkFont(size=12, weight="bold"))
         lbl_media.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
         
         media_frame = ctk.CTkFrame(self.env_scroll, fg_color="transparent")
@@ -844,7 +935,7 @@ class DockerSetupGUI(ctk.CTk):
         btn_browse = ctk.CTkButton(media_frame, text="Browse...", width=60, command=browse_media)
         btn_browse.grid(row=0, column=1, padx=(10, 0))
         
-        self.env_entries["DRIVEPOOL"] = entry_media
+        self.env_entries["DATADRIVE"] = entry_media
         row_idx += 1
         
         if "plex" in self.selected_services:

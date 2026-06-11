@@ -131,7 +131,7 @@ def build_compose_stacks() -> bool:
                     master_env_lines = f.readlines()
 
             # Global defaults always included
-            required_vars = {"PUID", "PGID", "TZ", "DOCKERDIR", "DRIVEPOOL", "USERDIR"}
+            required_vars = {"PUID", "PGID", "TZ", "DOCKERDIR", "DATADRIVE", "USERDIR"}
 
             # Scan compose for variables using exact regex mapping (Edge Case 14)
             var_matches = re.findall(r'\$\{?(\w+)(?:[:?#-][^}]*)?\}?', output)
