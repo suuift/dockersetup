@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.38] - 2026-06-11
+### Added
+- **[GUI]** Implemented a Minimal vs. Advanced setup toggle mode. In Minimal mode, core selected services are read-only and locked to prevent accidental modifications.
+- **[GUI]** Added a consolidated companion recommendations check on page navigation with options to auto-enable, skip, or go back.
+- **[GUI]** Replaced the timezone text field with a styled scrollable combobox with native scrollbars, searchable values, and auto-detection fallback.
+- **[GUI]** Expanded the environment variables credentials panel to support missing options including username, password (with show/hide eye toggle), media directory (defaulting to `D:/Media` on Windows with a browse selector), domain inputs, and VPN parameters.
+- **[GUI]** Added a startup validation dialog when an existing deployment is detected to modify selections, run a fast template upgrade, or trigger a full reset.
+- **[GUI]** Overhauled the deployment feedback area to include visual step progress indicators with checkmarks, spinner icons, progress bars, and a verbose log console toggle.
+- **[GUI]** Added a post-deployment dashboard featuring live socket health status checks (ONLINE/OFFLINE indicators), dynamic hyperlinks to Web UIs, manual widget token sync inputs, next steps guides, and cleanup notifications.
+- **[Updater]** Moved update verification on startup before GUI launch routing and added fallback support for Tkinter graphical dialog box update confirmations to prevent console stream hangs.
+- **[Main]** Changed default media directory from `H:/Media` to `D:/Media` for Windows host setups.
+
 ## [1.5.37] - 2026-06-11
 ### Fixed
 - **[GUI]** Resolved NameError and TypeError during deployment execution due to missing module imports (`setup_directories` and `setup_networks`) and incorrect parameter signatures for directory, network, compose, and deploy workers.
