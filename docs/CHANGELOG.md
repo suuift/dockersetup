@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.42] - 2026-06-11
+### Fixed
+- **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`.
+- **[GUI]** Added a real-time log queue redirection callback interface to `logger.py` to fix verbose logs toggle behavior in both text windows.
+- **[GUI]** Added automatic detection and cleanup of logs directory collision at startup and log-loading phases.
+- **[GUI]** Excluded FlareSolverr, database engines, and non-UI companion services from getting a Web UI button in the post-deployment dashboard.
+
 ## [1.5.41] - 2026-06-11
 ### Fixed
 - **[GUI]** Imported `get_clean_env` to resolve NameError crash during full system reset operations.
