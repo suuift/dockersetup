@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.31] - 2026-06-10
+### Added
+- **[Updater]** Implemented intelligent environment detection to update installed setups via the native `dockersetupinstaller.exe` silently in the background, while maintaining standalone binary-swap upgrades for portable runs.
+
 ## [1.5.30] - 2026-06-10
 ### Fixed
 - **[Installer]** Corrected Inno Setup constant definition for user's AppData path from invalid `{userlocalappdata}` to standard `{localappdata}`.

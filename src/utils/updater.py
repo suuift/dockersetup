@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.30"
+VERSION = "1.5.31"
 
 def parse_version(v_str: str):
     """
@@ -113,8 +113,15 @@ def invoke_self_update(project_root: str) -> bool:
                 if remote_ver > local_ver:
                     write_log(f"A new compiled release ({latest_tag}) is available. Current: v{VERSION}", level="WARN")
                     
-                    # Search for appropriate binary asset based on operating system
-                    expected_asset_name = "dockersetup.exe" if sys.platform == "win32" else "dockersetup"
+                    # Search for appropriate binary asset based on operating system and environment
+                    is_installed = False
+                    if sys.platform == "win32":
+                        uninstaller_path = os.path.join(os.path.dirname(sys.executable), "unins000.exe")
+                        is_installed = os.path.exists(uninstaller_path)
+                        expected_asset_name = "dockersetupinstaller.exe" if is_installed else "dockersetup.exe"
+                    else:
+                        expected_asset_name = "dockersetup"
+                        
                     download_url = None
                     for asset in data.get("assets", []):
                         if asset.get("name") == expected_asset_name:
@@ -127,8 +134,11 @@ def invoke_self_update(project_root: str) -> bool:
                     
                     apply = safe_confirm(f"Download and upgrade to {latest_tag} now?", default=True)
                     if apply:
-                        perform_binary_swap(download_url, sys.executable)
-                        return True # Restart scheduled by binary swap
+                        if sys.platform == "win32" and is_installed:
+                            perform_installer_update(download_url, sys.executable)
+                        else:
+                            perform_binary_swap(download_url, sys.executable)
+                        return True # Restart scheduled by updater
                 else:
                     write_log(f"Binary is up to date (v{VERSION}).", level="INFO")
                     
@@ -207,3 +217,58 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
                     pass
     except Exception as e:
         write_log(f"Updater encountered an error: {str(e)}", level="ERROR")
+
+def perform_installer_update(download_url: str, target_exe_path: str):
+    """
+    Downloads the new setup installer and executes it silently using a detached batch script
+    to avoid file locks on the running dockersetup.exe binary.
+    """
+    import tempfile
+    
+    # 1. Determine temporary paths
+    temp_dir = tempfile.gettempdir()
+    installer_path = os.path.join(temp_dir, "dockersetupinstaller_update.exe")
+    bat_path = os.path.join(temp_dir, "update_installer.bat")
+    
+    try:
+        # 2. Download the installer file
+        write_log(f"Downloading setup installer from {download_url}...", level="INFO")
+        req = urllib.request.Request(
+            download_url,
+            headers={"User-Agent": "DockerSetup-Updater"}
+        )
+        with urllib.request.urlopen(req, context=ssl_context) as response, open(installer_path, 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+            
+        write_log("Download finished. Preparing background installation script...", level="INFO")
+        
+        # 3. Create the self-deleting batch script
+        parent_pid = os.getpid()
+        bat_content = f"""@echo off
+:loop
+tasklist /fi "pid eq {parent_pid}" 2>nul | find "{parent_pid}" >nul
+if %errorlevel%==0 (
+    timeout /t 1 /nobreak >nul
+    goto loop
+)
+start /wait "" "{installer_path}" /VERYSILENT /SUPPRESSMSGBOXES
+start "" "{target_exe_path}"
+del "%~f0"
+"""
+        with open(bat_path, "w") as bat_file:
+            bat_file.write(bat_content)
+            
+        write_log("Spawning setup installer. The application will close and restart automatically...", level="INFO")
+        
+        # 4. Detach process and run the batch file (DETACHED_PROCESS = 0x00000008)
+        subprocess.Popen(
+            [bat_path], 
+            creationflags=0x00000008, 
+            close_fds=True
+        )
+        
+        # 5. Exit immediately to release file lock on target_exe_path
+        sys.exit(0)
+        
+    except Exception as e:
+        write_log(f"Failed to execute installer update: {str(e)}", level="ERROR")
