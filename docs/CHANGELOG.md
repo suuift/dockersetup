@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.33] - 2026-06-11
+### Fixed
+- **[CI/CD]** Added CustomTkinter theme assets bundling to the PyInstaller build target configurations on both local compilation tools and GitHub Actions workflow runners.
+
 ## [1.5.32] - 2026-06-11
 ### Added
 - **[GUI]** Added a fully visual setup wizard interface based on CustomTkinter.

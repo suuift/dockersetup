@@ -26,7 +26,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal certifi
+          pip install pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal certifi customtkinter darkdetect
 
       - name: Inject Version into Code (Linux)
         if: runner.os == 'Linux'
@@ -44,12 +44,15 @@ jobs:
       - name: Build Binary (Linux)
         if: runner.os == 'Linux'
         run: |
-          pyinstaller --onefile --clean --add-data "resources/services.yml:resources" --add-data "resources/templates.yml:resources" dockersetup.py
+          customtkinter_path=$(python -c "import customtkinter, os; print(os.path.dirname(customtkinter.__file__))")
+          pyinstaller --onefile --clean --add-data "resources/services.yml:resources" --add-data "resources/templates.yml:resources" --add-data "$customtkinter_path:customtkinter" dockersetup.py
 
       - name: Build Binary (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          pyinstaller --onefile --clean --add-data "resources/services.yml;resources" --add-data "resources/templates.yml;resources" --uac-admin --icon "resources/app.ico" dockersetup.py
+          $customtkinter_path = python -c "import customtkinter, os; print(os.path.dirname(customtkinter.__file__))"
+          pyinstaller --onefile --clean --add-data "resources/services.yml;resources" --add-data "resources/templates.yml;resources" --add-data "${customtkinter_path};customtkinter" --uac-admin --icon "resources/app.ico" dockersetup.py
 
       - name: Build Setup Installer (Windows)
         if: runner.os == 'Windows'
