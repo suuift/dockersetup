@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.44] - 2026-06-11
+### Fixed
+- **[Updater]** Cleared the `_MEIPASS` internal environment variable in `get_clean_env` before relaunching the application, preventing PyInstaller path pollution from tricking the bootloader into reusing outdated temporary folders and failing to load GUI libraries.
+
 ## [1.5.43] - 2026-06-11
 ### Fixed
 - **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`, and utilized PowerShell's `Start-Process` to handle GUI relaunch reliably. For Unix/Linux systems, utilized `os.execve` to pass a clean environment block explicitly and prevent PyInstaller path pollution from crashing the relaunched GUI.
