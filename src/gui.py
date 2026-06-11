@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import filedialog
 import customtkinter as ctk
 
-from src.utils.paths import get_project_root, get_deploy_dir, set_deploy_dir, get_resource_path
+from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
 from src.utils.logger import set_log_path, write_log
 from src.utils.state import get_metadata, set_metadata, save_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
@@ -233,7 +233,7 @@ class DockerSetupGUI(ctk.CTk):
             normalized = os.path.normpath(selected_dir)
             self.entry_deploy_path.delete(0, tk.END)
             self.entry_deploy_path.insert(0, normalized)
-            set_deploy_dir(normalized)
+            os.environ["DEPLOY_DIR"] = normalized
 
     # ==========================================
     # 2. SERVICES FRAME CREATION
@@ -390,7 +390,7 @@ class DockerSetupGUI(ctk.CTk):
         for key, entry in self.env_entries.items():
             env_dict[key] = entry.get().strip()
             
-        set_deploy_dir(self.entry_deploy_path.get().strip())
+        os.environ["DEPLOY_DIR"] = self.entry_deploy_path.get().strip()
         
         # Save to state manager
         set_metadata("selected_services", list(self.selected_services))

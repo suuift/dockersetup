@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=DockerSetup
-AppVersion=1.5.34
+AppVersion=1.5.35
 AppPublisher=suuift
 AppPublisherURL=https://github.com/suuift/dockersetup
 DefaultDirName={localappdata}\DockerSetup
@@ -21,8 +21,8 @@ ChangesEnvironment=no
 Source: "..\dist\dockersetup.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\DockerSetup"; Filename: "powershell.exe"; Parameters: "-NoExit -ExecutionPolicy Bypass -Command ""& '{app}\dockersetup.exe'"""; WorkingDir: "{userdocs}"
-Name: "{userdesktop}\DockerSetup"; Filename: "powershell.exe"; Parameters: "-NoExit -ExecutionPolicy Bypass -Command ""& '{app}\dockersetup.exe'"""; WorkingDir: "{userdocs}"
+Name: "{group}\DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{userdocs}"
+Name: "{userdesktop}\DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{userdocs}"
 
 [Run]
-Description: "Launch DockerSetup"; Filename: "powershell.exe"; Parameters: "-NoExit -ExecutionPolicy Bypass -Command ""& '{app}\dockersetup.exe'"""; WorkingDir: "{userdocs}"; Flags: postinstall nowait
+Description: "Launch DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{userdocs}"; Flags: postinstall nowait

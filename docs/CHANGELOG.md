@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.35] - 2026-06-11
+### Fixed
+- **[GUI]** Fixed the dynamic import crash caused by importing the non-existent helper `set_deploy_dir` inside the GUI module.
+- **[Installer]** Configured shortcuts in `installer.iss` to execute `{app}\dockersetup.exe` directly rather than wrapping inside a persistent, empty PowerShell window.
+
 ## [1.5.34] - 2026-06-11
 ### Fixed
 - **[CI/CD]** Added PyInstaller hidden import declarations for `tkinter`, `customtkinter`, and `darkdetect` to ensure graphical rendering engines (Tcl/Tk) are fully packaged into standalone binaries without crashing headless Linux servers.
