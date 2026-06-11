@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.39] - 2026-06-11
+### Added
+- **[GUI]** Implemented a dedicated sidebar Logs panel showing full session logs with real-time queue redirection and verbose log level checkbox filter.
+- **[GUI]** Added a Random Password generation button in the Environment wizard credentials form.
+- **[GUI]** Redesigned the services selection menu into a dual-pane layout when in Advanced Mode (Left checklist, Right active selection summary) and a single-pane core service view when in Minimal Mode.
+- **[GUI]** Monkey-patched customtkinter scrollable frame mouse wheel scroll resolution to prevent Tcl/Tk AttributeError on Windows.
+- **[Main]** Enhanced timezone auto-detection to calculate UTC offset and map regional settings accurately.
+- **[Main]** Hides Windows terminal console window at startup if launched via GUI mode double-click, while leaving it visible if sharing an active CLI terminal session.
+
 ## [1.5.38] - 2026-06-11
 ### Added
 - **[GUI]** Implemented a Minimal vs. Advanced setup toggle mode. In Minimal mode, core selected services are read-only and locked to prevent accidental modifications.

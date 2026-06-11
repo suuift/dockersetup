@@ -37,9 +37,6 @@ def write_log(message: str, level: str = "INFO", clear: bool = False):
     if os.getenv("DEBUG_LOGGING") == "true":
         _debug_logging = True
 
-    if level == "DEBUG" and not _debug_logging:
-        return
-
     log_path = get_log_path()
     base_path = os.path.dirname(log_path)
 
@@ -71,7 +68,7 @@ def write_log(message: str, level: str = "INFO", clear: bool = False):
             console.print(message, style="yellow")
         elif level == "ERROR":
             console.print(message, style="bold red")
-        elif level == "DEBUG":
+        elif level == "DEBUG" and _debug_logging:
             console.print(f"[DEBUG] {message}", style="grey50")
 
 def write_step(message: str, level: str = "INFO"):

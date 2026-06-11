@@ -11,6 +11,23 @@ import tkinter as tk
 from tkinter import filedialog
 import customtkinter as ctk
 
+# Monkey-patch CTkScrollableFrame.check_if_master_is_canvas to prevent AttributeError: 'str' object has no attribute 'master'
+try:
+    original_check = ctk.CTkScrollableFrame.check_if_master_is_canvas
+    def patched_check(self, widget):
+        if isinstance(widget, str):
+            try:
+                widget = self.nametowidget(widget)
+            except Exception:
+                return False
+        try:
+            return original_check(self, widget)
+        except Exception:
+            return False
+    ctk.CTkScrollableFrame.check_if_master_is_canvas = patched_check
+except Exception:
+    pass
+
 from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
 from src.utils.logger import set_log_path, write_log
 from src.utils.state import get_metadata, set_metadata
@@ -31,6 +48,19 @@ import tkinter.ttk as ttk
 class DockerSetupGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
+
+        # Hide terminal console window at startup on Windows only if we own the console process
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+                if hwnd != 0:
+                    pid = ctypes.wintypes.DWORD()
+                    ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                    if pid.value == os.getpid():
+                        ctypes.windll.user32.ShowWindow(hwnd, 0) # SW_HIDE = 0
+            except Exception:
+                pass
 
         # 1. Main Window Settings
         self.title(f"DockerSetup v{VERSION} - Graphical Setup Suite")
@@ -57,7 +87,7 @@ class DockerSetupGUI(ctk.CTk):
         # Sidebar Frame
         self.sidebar_frame = ctk.CTkFrame(self, width=200, corner_radius=0)
         self.sidebar_frame.grid(row=0, column=0, sticky="nsew")
-        self.sidebar_frame.grid_rowconfigure(5, weight=1)
+        self.sidebar_frame.grid_rowconfigure(6, weight=1)
         
         # Sidebar Logo / Header
         self.logo_label = ctk.CTkLabel(self.sidebar_frame, text="DockerSetup", font=ctk.CTkFont(size=22, weight="bold"))
@@ -78,11 +108,14 @@ class DockerSetupGUI(ctk.CTk):
         self.btn_deploy = ctk.CTkButton(self.sidebar_frame, text="4. Deploy", anchor="w", command=self.show_deploy_frame)
         self.btn_deploy.grid(row=5, column=0, padx=20, pady=10, sticky="new")
         
+        self.btn_logs = ctk.CTkButton(self.sidebar_frame, text="5. View Logs", anchor="w", command=self.show_logs_frame)
+        self.btn_logs.grid(row=6, column=0, padx=20, pady=10, sticky="new")
+        
         # Appearance Mode Selector in Sidebar bottom
-        self.appearance_mode_label = ctk.CTkLabel(self.sidebar_frame, text="Theme Mode:", anchor="w")
-        self.appearance_mode_label.grid(row=6, column=0, padx=20, pady=(10, 0), sticky="w")
+        self.appearance_mode_label = ctk.CTkLabel(self.sidebar_frame, text="Theme:", anchor="w")
+        self.appearance_mode_label.grid(row=7, column=0, padx=20, pady=(10, 0), sticky="w")
         self.appearance_mode_optionemenu = ctk.CTkOptionMenu(self.sidebar_frame, values=["System", "Dark", "Light"], command=self.change_appearance_mode)
-        self.appearance_mode_optionemenu.grid(row=7, column=0, padx=20, pady=(5, 20), sticky="ew")
+        self.appearance_mode_optionemenu.grid(row=8, column=0, padx=20, pady=(5, 20), sticky="ew")
         
         # 3. Main Display Area
         self.main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -95,6 +128,7 @@ class DockerSetupGUI(ctk.CTk):
         self.services_frame = self.create_services_view()
         self.env_frame = self.create_env_view()
         self.deploy_frame = self.create_deploy_view()
+        self.logs_view_frame = self.create_logs_view()
         
         # Launch Welcome Frame first
         self.show_welcome_frame()
@@ -110,18 +144,20 @@ class DockerSetupGUI(ctk.CTk):
     def load_services_registry(self):
         try:
             services_path = get_resource_path("services.yml")
-            master_registry = get_yaml_content(services_path)
-            self.registry = get_registry_list(master_registry)
+            self.master_registry = get_yaml_content(services_path)
+            self.registry = get_registry_list(self.master_registry)
         except Exception as e:
             write_log(f"GUI failed to load master registry: {str(e)}", level="ERROR")
             self.registry = []
+            self.master_registry = {}
 
     def select_sidebar_button(self, selected_btn):
-        for btn in [self.btn_welcome, self.btn_services, self.btn_env, self.btn_deploy]:
-            if btn == selected_btn:
-                btn.configure(fg_color=["#3B8ED0", "#1F6AA5"]) # Highlight selected
-            else:
-                btn.configure(fg_color="transparent")
+        for btn in [self.btn_welcome, self.btn_services, self.btn_env, self.btn_deploy, getattr(self, "btn_logs", None)]:
+            if btn:
+                if btn == selected_btn:
+                    btn.configure(fg_color=["#3B8ED0", "#1F6AA5"]) # Highlight selected
+                else:
+                    btn.configure(fg_color="transparent")
 
     # ==========================================
     # VIEW SHOW/HIDE CONTROLLER
@@ -151,9 +187,16 @@ class DockerSetupGUI(ctk.CTk):
         self.update_deploy_summary()
         self.deploy_frame.grid(row=0, column=0, sticky="nsew")
 
+    def show_logs_frame(self):
+        self.select_sidebar_button(self.btn_logs)
+        self.hide_all_frames()
+        self.update_logs_view_content()
+        self.logs_view_frame.grid(row=0, column=0, sticky="nsew")
+
     def hide_all_frames(self):
-        for frame in [self.welcome_frame, self.services_frame, self.env_frame, self.deploy_frame]:
-            frame.grid_forget()
+        for frame in [self.welcome_frame, self.services_frame, self.env_frame, self.deploy_frame, getattr(self, "logs_view_frame", None), getattr(self, "summary_view_frame", None)]:
+            if frame:
+                frame.grid_forget()
 
     # ==========================================
     # 1. WELCOME FRAME CREATION
@@ -408,10 +451,11 @@ class DockerSetupGUI(ctk.CTk):
         )
         self.switch_advanced.grid(row=2, column=0, pady=(5, 5), sticky="w")
         
-        # Scrollable container for checkboxes
-        self.services_scroll = ctk.CTkScrollableFrame(frame)
-        self.services_scroll.grid(row=3, column=0, sticky="nsew", pady=10)
-        self.services_scroll.grid_columnconfigure((0, 1, 2), weight=1)
+        # Container frame for either Minimal or Advanced layouts
+        self.services_container = ctk.CTkFrame(frame, fg_color="transparent")
+        self.services_container.grid(row=3, column=0, sticky="nsew", pady=10)
+        self.services_container.grid_columnconfigure(0, weight=1)
+        self.services_container.grid_rowconfigure(0, weight=1)
         
         self.chk_vars = {}
         self.chk_buttons = {}
@@ -432,26 +476,29 @@ class DockerSetupGUI(ctk.CTk):
 
     def on_advanced_switch_toggle(self):
         is_advanced = self.var_advanced_mode.get()
-        
-        # Determine minimal keys
         minimal_keys = []
         if hasattr(self, "master_registry") and "MINIMAL" in self.master_registry:
             minimal_keys = [svc.key for svc in self.master_registry["MINIMAL"]]
             
-        for key, chk in self.chk_buttons.items():
-            if not is_advanced:
+        # If toggling back to minimal, reset selections to minimal keys
+        if not is_advanced:
+            for key in list(self.chk_vars.keys()):
                 if key in minimal_keys:
                     self.chk_vars[key].set(True)
                 else:
                     self.chk_vars[key].set(False)
-                chk.configure(state="disabled")
-            else:
-                chk.configure(state="normal")
-        
-        self.on_checkbox_toggle()
+                    
+        self.build_services_checkboxes()
 
     def build_services_checkboxes(self):
-        # Categorize services based on types inside services.yml
+        # Clear container
+        for widget in self.services_container.winfo_children():
+            try:
+                widget.destroy()
+            except Exception:
+                pass
+                
+        # Resolve categories
         categories = {}
         for entry in self.registry:
             cat = entry.type.upper() if entry.type else "GENERAL"
@@ -461,7 +508,6 @@ class DockerSetupGUI(ctk.CTk):
                 categories[cat] = []
             categories[cat].append(entry)
             
-        current_row = 0
         metadata = get_metadata()
         active_selections = metadata.get("selected_services", [])
         
@@ -470,39 +516,104 @@ class DockerSetupGUI(ctk.CTk):
         if hasattr(self, "master_registry") and "MINIMAL" in self.master_registry:
             minimal_keys = [svc.key for svc in self.master_registry["MINIMAL"]]
             
-        # Determine initial switch state
-        if not active_selections:
-            active_selections = minimal_keys
-            self.var_advanced_mode.set(False)
-        else:
+        # Determine initial switch state if not already set manually
+        if active_selections:
             is_adv = not all(k in minimal_keys for k in active_selections)
-            self.var_advanced_mode.set(is_adv)
-            
-        # Render category headers and service checkboxes
-        for cat_name, entries in sorted(categories.items()):
-            lbl_cat = ctk.CTkLabel(self.services_scroll, text=cat_name, font=ctk.CTkFont(size=14, weight="bold"), text_color=["#1F6AA5", "#3B8ED0"])
-            lbl_cat.grid(row=current_row, column=0, columnspan=3, pady=(15, 5), sticky="w")
-            current_row += 1
-            
-            col_idx = 0
-            for entry in entries:
-                var = tk.BooleanVar(value=(entry.key in active_selections))
-                self.chk_vars[entry.key] = var
-                
-                chk_state = "normal" if self.var_advanced_mode.get() else "disabled"
-                chk = ctk.CTkCheckBox(self.services_scroll, text=f"{entry.key} (port {entry.port})" if entry.port and entry.port != "0" else entry.key, variable=var, command=self.on_checkbox_toggle, state=chk_state)
-                chk.grid(row=current_row, column=col_idx, padx=10, pady=5, sticky="w")
-                self.chk_buttons[entry.key] = chk
-                
-                col_idx += 1
-                if col_idx > 2:
-                    col_idx = 0
-                    current_row += 1
-            
-            if col_idx > 0:
-                current_row += 1
+            if is_adv and not self.var_advanced_mode.get():
+                self.var_advanced_mode.set(True)
+        else:
+            active_selections = minimal_keys
 
-        self.on_checkbox_toggle()
+        # Ensure all services have a BooleanVar initialized
+        for entry in self.registry:
+            if entry.key not in self.chk_vars:
+                is_selected = entry.key in active_selections
+                self.chk_vars[entry.key] = tk.BooleanVar(value=is_selected)
+
+        # 1. MINIMAL MODE
+        if not self.var_advanced_mode.get():
+            self.services_container.grid_columnconfigure(0, weight=1)
+            self.services_container.grid_columnconfigure(1, weight=0)
+            
+            lbl_info = ctk.CTkLabel(self.services_container, text="Core Minimal Services (Enabled)", font=ctk.CTkFont(size=14, weight="bold"))
+            lbl_info.pack(anchor="w", pady=(5, 10))
+            
+            self.minimal_scroll = ctk.CTkScrollableFrame(self.services_container)
+            self.minimal_scroll.pack(fill="both", expand=True)
+            
+            for entry in self.registry:
+                if entry.key in minimal_keys:
+                    self.chk_vars[entry.key].set(True)
+                    chk = ctk.CTkCheckBox(
+                        self.minimal_scroll, 
+                        text=f"{entry.key} (port {entry.port})" if entry.port and entry.port != "0" else entry.key,
+                        variable=self.chk_vars[entry.key], 
+                        state="disabled"
+                    )
+                    chk.pack(anchor="w", padx=20, pady=6)
+                    self.chk_buttons[entry.key] = chk
+            self.on_checkbox_toggle()
+            
+        # 2. ADVANCED MODE (DUAL-PANE LAYOUT)
+        else:
+            self.services_container.grid_columnconfigure(0, weight=3)
+            self.services_container.grid_columnconfigure(1, weight=2)
+            
+            # Left Pane
+            left_frame = ctk.CTkFrame(self.services_container, fg_color="transparent")
+            left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+            left_frame.grid_columnconfigure(0, weight=1)
+            left_frame.grid_rowconfigure(1, weight=1)
+            
+            lbl_left = ctk.CTkLabel(left_frame, text="Available Services Checklist", font=ctk.CTkFont(size=14, weight="bold"))
+            lbl_left.grid(row=0, column=0, pady=(5, 10), sticky="w")
+            
+            self.services_scroll = ctk.CTkScrollableFrame(left_frame)
+            self.services_scroll.grid(row=1, column=0, sticky="nsew")
+            self.services_scroll.grid_columnconfigure((0, 1), weight=1)
+            
+            # Right Pane
+            right_frame = ctk.CTkFrame(self.services_container, fg_color="transparent")
+            right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
+            right_frame.grid_columnconfigure(0, weight=1)
+            right_frame.grid_rowconfigure(1, weight=1)
+            
+            lbl_right = ctk.CTkLabel(right_frame, text="Active Stack Selections", font=ctk.CTkFont(size=14, weight="bold"))
+            lbl_right.grid(row=0, column=0, pady=(5, 10), sticky="w")
+            
+            self.selected_scroll = ctk.CTkScrollableFrame(right_frame)
+            self.selected_scroll.grid(row=1, column=0, sticky="nsew")
+            
+            # Render left checkboxes
+            current_row = 0
+            for cat_name, entries in sorted(categories.items()):
+                lbl_cat = ctk.CTkLabel(self.services_scroll, text=cat_name, font=ctk.CTkFont(size=13, weight="bold"), text_color=["#1F6AA5", "#3B8ED0"])
+                lbl_cat.grid(row=current_row, column=0, columnspan=2, pady=(12, 4), sticky="w")
+                current_row += 1
+                
+                col_idx = 0
+                for entry in entries:
+                    chk = ctk.CTkCheckBox(
+                        self.services_scroll, 
+                        text=f"{entry.key} (port {entry.port})" if entry.port and entry.port != "0" else entry.key, 
+                        variable=self.chk_vars[entry.key], 
+                        command=self.on_checkbox_toggle
+                    )
+                    chk.grid(row=current_row, column=col_idx, padx=5, pady=5, sticky="w")
+                    self.chk_buttons[entry.key] = chk
+                    
+                    col_idx += 1
+                    if col_idx > 1:
+                         col_idx = 0
+                         current_row += 1
+                if col_idx > 0:
+                    current_row += 1
+            self.on_checkbox_toggle()
+
+    def uncheck_service(self, key: str):
+        if key in self.chk_vars:
+            self.chk_vars[key].set(False)
+            self.on_checkbox_toggle()
 
     def check_recommendations_and_proceed(self):
         recommendations_map = {}
@@ -545,15 +656,9 @@ class DockerSetupGUI(ctk.CTk):
             btn_frame.pack(pady=(20, 10))
             
             def on_yes():
-                # Temporarily enable state to toggle checkbox values programmatically
                 for rec in missing_recs:
                     if rec in self.chk_vars:
-                        if rec in self.chk_buttons:
-                            self.chk_buttons[rec].configure(state="normal")
                         self.chk_vars[rec].set(True)
-                        if not self.var_advanced_mode.get():
-                            if rec in self.chk_buttons:
-                                self.chk_buttons[rec].configure(state="disabled")
                 self.on_checkbox_toggle()
                 dialog.destroy()
                 self.show_env_frame()
@@ -580,6 +685,27 @@ class DockerSetupGUI(ctk.CTk):
     def on_checkbox_toggle(self):
         # Synchronize local list
         self.selected_services = {key for key, var in self.chk_vars.items() if var.get()}
+        
+        # Dynamically build Selected Summary if we are in Advanced Mode and self.selected_scroll exists
+        if self.var_advanced_mode.get() and hasattr(self, "selected_scroll") and self.selected_scroll.winfo_exists():
+            for widget in self.selected_scroll.winfo_children():
+                try:
+                    widget.destroy()
+                except Exception:
+                    pass
+            
+            for key in sorted(self.selected_services):
+                card = ctk.CTkFrame(self.selected_scroll, fg_color=["#E5E5E5", "#2B2B2B"], height=32, corner_radius=6)
+                card.pack(fill="x", padx=5, pady=3)
+                
+                lbl = ctk.CTkLabel(card, text=key, font=ctk.CTkFont(size=12))
+                lbl.pack(side="left", padx=10)
+                
+                def make_delete_cmd(k=key):
+                    return lambda: self.uncheck_service(k)
+                
+                btn_del = ctk.CTkButton(card, text="✕", width=20, height=20, fg_color="transparent", text_color="red", hover_color=["#FFCCCC", "#552222"], command=make_delete_cmd(key))
+                btn_del.pack(side="right", padx=10)
 
     # ==========================================
     # 3. CREDENTIALS / ENV VARS FRAME CREATION
@@ -667,7 +793,7 @@ class DockerSetupGUI(ctk.CTk):
         pass_frame = ctk.CTkFrame(self.env_scroll, fg_color="transparent")
         pass_frame.grid(row=row_idx, column=1, padx=10, pady=5, sticky="ew")
         
-        entry_pass = ctk.CTkEntry(pass_frame, placeholder_text="Management Password (leave blank to generate)", show="*", width=330)
+        entry_pass = ctk.CTkEntry(pass_frame, placeholder_text="Management Password (leave blank to generate)", show="*", width=250)
         entry_pass.insert(0, saved_env.get("HTTP_PASSWORD", ""))
         entry_pass.grid(row=0, column=0, sticky="ew")
         
@@ -681,6 +807,13 @@ class DockerSetupGUI(ctk.CTk):
                 
         btn_toggle = ctk.CTkButton(pass_frame, text="Show", width=60, command=toggle_pass)
         btn_toggle.grid(row=0, column=1, padx=(10, 0))
+        
+        def generate_rand():
+            entry_pass.delete(0, tk.END)
+            entry_pass.insert(0, new_random_password())
+            
+        btn_random = ctk.CTkButton(pass_frame, text="Random", width=70, command=generate_rand)
+        btn_random.grid(row=0, column=2, padx=(10, 0))
         
         self.env_entries["HTTP_PASSWORD"] = entry_pass
         row_idx += 1
@@ -758,10 +891,16 @@ class DockerSetupGUI(ctk.CTk):
         # Updates config metadata
         self.selected_services = {key for key, var in self.chk_vars.items() if var.get()}
         
-        # Read text values
+        # Read text values safely
         env_dict = {}
-        for key, entry in self.env_entries.items():
-            env_dict[key] = entry.get().strip()
+        if hasattr(self, "env_entries") and self.env_entries:
+            for key, entry in list(self.env_entries.items()):
+                try:
+                    if hasattr(entry, "winfo_exists") and not entry.winfo_exists():
+                        continue
+                    env_dict[key] = entry.get().strip()
+                except Exception:
+                    pass
             
         # Ensure HTTP_PASSWORD is not empty (auto-generate if blank)
         if not env_dict.get("HTTP_PASSWORD"):
@@ -889,6 +1028,16 @@ class DockerSetupGUI(ctk.CTk):
                 msg = self.log_queue.get_nowait()
                 self.log_text.insert(tk.END, msg + "\n")
                 self.log_text.see(tk.END)
+                
+                if hasattr(self, "logs_textbox"):
+                    show_verbose = self.chk_verbose_logs.get()
+                    is_debug = "[DEBUG]" in msg or "[TRACE]" in msg or msg.startswith("[DEBUG]") or msg.startswith("[TRACE]")
+                    if show_verbose or not is_debug:
+                        self.logs_textbox.configure(state="normal")
+                        self.logs_textbox.insert(tk.END, msg + "\n")
+                        self.logs_textbox.configure(state="disabled")
+                        self.logs_textbox.see(tk.END)
+                        
                 self.log_queue.task_done()
         except queue.Empty:
             pass
@@ -1202,6 +1351,87 @@ class DockerSetupGUI(ctk.CTk):
         
         lbl_guide = ctk.CTkLabel(scroll, text=guide_text, justify="left", wraplength=550, font=ctk.CTkFont(size=12))
         lbl_guide.pack(padx=10, pady=10)
+
+    def create_logs_view(self) -> ctk.CTkFrame:
+        frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        frame.grid_columnconfigure(0, weight=1)
+        frame.grid_rowconfigure(3, weight=1)
+        
+        lbl_title = ctk.CTkLabel(frame, text="System Installation Logs", font=ctk.CTkFont(size=24, weight="bold"))
+        lbl_title.grid(row=0, column=0, pady=(10, 5), sticky="w")
+        
+        lbl_desc = ctk.CTkLabel(frame, text="View the comprehensive execution output from the background process in real-time.", font=ctk.CTkFont(size=13))
+        lbl_desc.grid(row=1, column=0, pady=(0, 10), sticky="w")
+        
+        # Verbose Log Checkbox
+        self.chk_verbose_logs = ctk.CTkCheckBox(
+            frame, 
+            text="Enable Verbose (Debug) Logging", 
+            command=self.update_logs_view_content,
+            font=ctk.CTkFont(size=12, weight="bold")
+        )
+        self.chk_verbose_logs.grid(row=2, column=0, pady=5, sticky="w")
+        
+        # Log Text Area
+        self.logs_textbox = ctk.CTkTextbox(frame, height=400, font=ctk.CTkFont(family="Courier", size=11))
+        self.logs_textbox.grid(row=3, column=0, sticky="nsew", pady=10)
+        self.logs_textbox.configure(state="disabled")
+        
+        # Open in Editor button
+        btn_open = ctk.CTkButton(frame, text="Open Log in Editor", width=180, command=self.open_log_in_editor)
+        btn_open.grid(row=4, column=0, pady=(10, 0), sticky="e")
+        
+        return frame
+
+    def update_logs_view_content(self):
+        if not hasattr(self, "logs_textbox"):
+            return
+        from src.utils.logger import get_log_path
+        log_path = get_log_path()
+        if not os.path.exists(log_path):
+            self.logs_textbox.configure(state="normal")
+            self.logs_textbox.delete("1.0", tk.END)
+            self.logs_textbox.insert(tk.END, "[INFO] No log files generated yet.")
+            self.logs_textbox.configure(state="disabled")
+            return
+            
+        show_verbose = self.chk_verbose_logs.get()
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception as e:
+            lines = [f"[ERROR] Failed to read log file: {str(e)}\n"]
+            
+        filtered_lines = []
+        for line in lines:
+            if not show_verbose:
+                if "[DEBUG]" in line or "[TRACE]" in line:
+                    continue
+            filtered_lines.append(line)
+            
+        self.logs_textbox.configure(state="normal")
+        self.logs_textbox.delete("1.0", tk.END)
+        self.logs_textbox.insert(tk.END, "".join(filtered_lines))
+        self.logs_textbox.configure(state="disabled")
+        self.logs_textbox.see(tk.END)
+
+    def open_log_in_editor(self):
+        from src.utils.logger import get_log_path
+        log_path = get_log_path()
+        if not os.path.exists(log_path):
+            from tkinter import messagebox
+            messagebox.showwarning("Log Not Found", "No log file has been created yet.")
+            return
+        try:
+            if sys.platform == "win32":
+                os.startfile(log_path)
+            elif sys.platform == "darwin":
+                subprocess.Popen(["open", log_path])
+            else:
+                subprocess.Popen(["xdg-open", log_path])
+        except Exception as e:
+            from tkinter import messagebox
+            messagebox.showerror("Error", f"Failed to open log file: {str(e)}")
 
 if __name__ == "__main__":
     app = DockerSetupGUI()

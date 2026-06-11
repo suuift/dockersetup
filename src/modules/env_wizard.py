@@ -122,55 +122,101 @@ def detect_lan_network() -> str:
         return "192.168.1.0/24"
 
 def detect_timezone() -> str:
-    if platform.system() == "Windows":
-        try:
-            return get_localzone_name() or "UTC"
-        except Exception:
-            return "UTC"
-            
-    # Linux/macOS robust detection
-    tz = None
+    # Calculate system offset in hours
+    system_offset = 0.0
     try:
-        # 1. TZ env variable
-        if os.environ.get("TZ"):
-            tz = os.environ["TZ"]
-            
-        # 2. /etc/timezone file
-        if not tz and os.path.exists("/etc/timezone"):
-            with open("/etc/timezone", "r") as f:
-                val = f.read().strip()
-                if val:
-                    tz = val
-                    
-        # 3. /etc/localtime symlink resolution
-        if not tz and os.path.exists("/etc/localtime"):
-            real_path = os.path.realpath("/etc/localtime")
-            if "zoneinfo/" in real_path:
-                tz = real_path.split("zoneinfo/")[-1]
-                
-        # 4. timedatectl query
-        if not tz and shutil.which("timedatectl"):
-            res = subprocess.run(
-                ["timedatectl", "show", "--property=Timezone", "--value"],
-                capture_output=True, text=True, timeout=2
-            )
-            if res.returncode == 0:
-                val = res.stdout.strip()
-                if val:
-                    tz = val
+        utc_now = datetime.datetime.now(datetime.timezone.utc)
+        local_now = utc_now.astimezone()
+        system_offset = local_now.utcoffset().total_seconds() / 3600.0
     except Exception:
         pass
-        
-    if tz and tz != "None":
+
+    # Helper to check if a zone has a specific offset right now
+    def offset_matches(zone_name, target_offset):
+        try:
+            utc_now = datetime.datetime.now(datetime.timezone.utc)
+            tz_offset = utc_now.astimezone(ZoneInfo(zone_name)).utcoffset().total_seconds() / 3600.0
+            return abs(tz_offset - target_offset) < 0.01
+        except Exception:
+            return False
+
+    tz = None
+    if platform.system() == "Windows":
+        try:
+            tz = get_localzone_name()
+            if tz and tz != "None" and offset_matches(tz, system_offset):
+                return tz
+        except Exception:
+            pass
+    else:
+        # Linux/macOS robust detection
+        try:
+            # 1. TZ env variable
+            if os.environ.get("TZ"):
+                tz = os.environ["TZ"]
+                
+            # 2. /etc/timezone file
+            if not tz and os.path.exists("/etc/timezone"):
+                with open("/etc/timezone", "r") as f:
+                    val = f.read().strip()
+                    if val:
+                        tz = val
+                        
+            # 3. /etc/localtime symlink resolution
+            if not tz and os.path.exists("/etc/localtime"):
+                real_path = os.path.realpath("/etc/localtime")
+                if "zoneinfo/" in real_path:
+                    tz = real_path.split("zoneinfo/")[-1]
+                    
+            # 4. timedatectl query
+            if not tz and shutil.which("timedatectl"):
+                res = subprocess.run(
+                    ["timedatectl", "show", "--property=Timezone", "--value"],
+                    capture_output=True, text=True, timeout=2
+                )
+                if res.returncode == 0:
+                    val = res.stdout.strip()
+                    if val:
+                        tz = val
+        except Exception:
+            pass
+
+    if tz and tz != "None" and offset_matches(tz, system_offset):
         return tz
-        
+
+    # Fallback regional selection from COMMON_ZONES using current offset
+    matching_zones = []
+    for zone in COMMON_ZONES:
+        if offset_matches(zone, system_offset):
+            matching_zones.append(zone)
+
+    if matching_zones:
+        priority_map = {
+            -4: ["America/New_York", "America/Toronto", "America/Halifax"],
+            -5: ["America/Chicago", "America/Toronto", "America/Bogota", "America/Lima"],
+            -6: ["America/Denver", "America/Chicago", "America/Mexico_City"],
+            -7: ["America/Phoenix", "America/Los_Angeles", "America/Denver"],
+            -8: ["America/Los_Angeles", "America/Vancouver"],
+            0: ["UTC", "Europe/London"],
+            1: ["Europe/London", "Europe/Paris", "Europe/Berlin"],
+            2: ["Europe/Berlin", "Europe/Rome"],
+            3: ["Europe/Moscow", "Asia/Riyadh"],
+        }
+        rounded_offset = round(system_offset)
+        if rounded_offset in priority_map:
+            for p_zone in priority_map[rounded_offset]:
+                if p_zone in matching_zones:
+                    return p_zone
+        return matching_zones[0]
+
     try:
         val = get_localzone_name()
         if val and val != "None":
             return val
-        return "UTC"
     except Exception:
-        return "UTC"
+        pass
+
+    return "UTC"
         
 COMMON_ZONES = [
     "UTC", "America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles",
