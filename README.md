@@ -4,19 +4,23 @@ A professional-grade, cross-platform Python automation suite for deploying a com
 
 ## Quick Start
 
-The fastest way to deploy DockerSetup is using the pre-compiled standalone binaries.
+The fastest way to deploy DockerSetup is using the pre-compiled standalone binaries. 
+
+By default, the application will automatically launch the **Graphical Setup Suite (GUI)** if a display environment is available. To force the command-line wizard (e.g. in SSH or headless mode), append the `--cli` parameter.
 
 ### Windows (PowerShell)
 Download and run the executable. Note that running this command will trigger a User Account Control (UAC) prompt to grant the installer necessary Administrator permissions.
 ```powershell
 Invoke-WebRequest -Uri "https://github.com/suuift/dockersetup/releases/latest/download/dockersetup.exe" -OutFile "dockersetup.exe"; .\dockersetup.exe
 ```
+*(To force CLI mode: `.\dockersetup.exe --cli`)*
 
 ### Linux (Shell)
 Run this command in your terminal. For standard setups where your user is in the `docker` group, running without `sudo` is recommended.
 ```bash
 curl -L -o dockersetup https://github.com/suuift/dockersetup/releases/latest/download/dockersetup && chmod +x dockersetup && ./dockersetup
 ```
+*(To force CLI mode: `./dockersetup --cli`)*
 *(Note: Use `sudo ./dockersetup` only if your user lacks docker group socket permissions or you are deploying to a system-protected path like `/opt`)*
 
 ---
@@ -56,6 +60,7 @@ Follow the interactive menus to select your installation tier, configure credent
 
 ## Key Features
 
+*   **Dual Mode (GUI & CLI):** Launches a modern CustomTkinter-based Graphical Setup Suite in desktop environments for interactive, visual stack configuration and real-time thread-safe deployment progress tracking. Automatically falls back to a robust, interactive CLI wizard in headless/SSH environments (or when launched with the `--cli` flag).
 *   **Stateless Builder Architecture:** Keeps the code repository clean. All configurations, state metadata, and Docker Compose directories write directly to your target directory.
 *   **Fully Automated Stitching & Stitch-Config:** Automatically links download clients to PVRs, Prowlarr to indexers, Bazarr to subtitles, and connects Radarr/Sonarr import lists (Plex watchlists, StevenLu popular list) and quality renaming configs out of the box.
 *   **Interactive Setup Wizards:** Streamlines initial configuration with guided prompts for Plex claim tokens, Usenet server definitions, Prowlarr indexers, and API credential syncing.

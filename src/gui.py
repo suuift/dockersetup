@@ -13,13 +13,15 @@ import customtkinter as ctk
 
 from src.utils.paths import get_project_root, get_deploy_dir, get_resource_path
 from src.utils.logger import set_log_path, write_log
-from src.utils.state import get_metadata, set_metadata, save_metadata
+from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
 from src.utils.updater import VERSION
 
 # Core module imports
 from src.modules.preflight import run_system_preflight
 from src.modules.deploy_preflight import get_port_owner
+from src.modules.directories import setup_directories
+from src.modules.network import setup_networks
 from src.modules.compose_build import build_compose_stacks
 from src.modules.deploy_start import deploy_stacks
 from src.modules.auto_configure import auto_stitch_services
@@ -393,9 +395,10 @@ class DockerSetupGUI(ctk.CTk):
         os.environ["DEPLOY_DIR"] = self.entry_deploy_path.get().strip()
         
         # Save to state manager
-        set_metadata("selected_services", list(self.selected_services))
-        set_metadata("env_vars", env_dict)
-        save_metadata(get_deploy_dir())
+        metadata = get_metadata()
+        metadata["selected_services"] = list(self.selected_services)
+        metadata["env_vars"] = env_dict
+        set_metadata(metadata)
 
     # ==========================================
     # 4. DEPLOY FRAME CREATION
@@ -478,7 +481,7 @@ class DockerSetupGUI(ctk.CTk):
             # 1. Directories setup
             self.log_message("[INFO] Setting up directories...")
             metadata = get_metadata()
-            setup_directories(deploy_dir)
+            setup_directories()
             
             # 2. Write variables into target env
             self.log_message("[INFO] Writing variables to deployment environment...")
@@ -490,16 +493,16 @@ class DockerSetupGUI(ctk.CTk):
                     
             # 3. Create networks
             self.log_message("[INFO] Constructing overlay network definitions...")
-            setup_networks(deploy_dir)
+            setup_networks()
             
             # 4. Generate Compose stack files
             self.log_message("[INFO] Generating stack orchestration files from templates...")
-            build_compose_stacks(deploy_dir)
+            build_compose_stacks()
             
             # 5. Relaunch/Stitch logic
             self.log_message("[INFO] Executing compose starts and image downloads...")
             # We redirect standard stdout print channels to the gui log during subprocess start
-            deploy_stacks(deploy_dir)
+            deploy_stacks()
             
             # Sync .env
             self.log_message("[INFO] Syncing environment secrets across stacks...")
