@@ -145,6 +145,20 @@ def main():
         except Exception:
             pass
 
+        # Check if we should route to GUI mode
+        use_cli = "--cli" in sys.argv
+        has_display = sys.platform == "win32" or os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+        
+        if not use_cli and has_display:
+            try:
+                from src.gui import DockerSetupGUI
+                app = DockerSetupGUI()
+                app.mainloop()
+                sys.exit(0)
+            except Exception as e:
+                # Fall back to CLI if GUI initialization fails
+                print(f"[WARN] GUI initialization failed: {str(e)}. Falling back to CLI mode.")
+
         project_root = get_project_root()
         
         # Self-Update check (Headless/CI skips update)

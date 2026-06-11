@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.32] - 2026-06-11
+### Added
+- **[GUI]** Added a fully visual setup wizard interface based on CustomTkinter.
+- **[GUI]** Implemented dynamic service checklist selection and custom credential wizards matching the CLI deployment flow.
+- **[GUI]** Added non-blocking background deployment worker threads with real-time log piping/redirection.
+- **[Main]** Integrated auto-routing entry execution to launch GUI mode if display server is present, falling back to CLI.
+
 ## [1.5.31] - 2026-06-10
 ### Added
 - **[Updater]** Implemented intelligent environment detection to update installed setups via the native `dockersetupinstaller.exe` silently in the background, while maintaining standalone binary-swap upgrades for portable runs.

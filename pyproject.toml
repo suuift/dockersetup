@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dockersetup"
-version = "1.5.31"
+version = "1.5.32"
 description = "Cross-platform python-based Docker media stack setup script"
 authors = ["suuift <suuift@gmail.com>"]
 readme = "README.md"
@@ -14,6 +14,7 @@ rich = "13.7.0"
 python-dotenv = "1.0.1"
 requests = "2.31.0"
 tzlocal = "5.2"
+customtkinter = "^5.2.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "8.0.0"
