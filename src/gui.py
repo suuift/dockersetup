@@ -25,6 +25,8 @@ from src.modules.network import setup_networks
 from src.modules.compose_build import build_compose_stacks
 from src.modules.deploy_start import deploy_stacks
 from src.modules.auto_configure import auto_stitch_services
+from src.modules.env_wizard import COMMON_ZONES, detect_timezone, new_random_password
+import tkinter.ttk as ttk
 
 class DockerSetupGUI(ctk.CTk):
     def __init__(self):
@@ -194,10 +196,154 @@ class DockerSetupGUI(ctk.CTk):
         btn_browse.grid(row=0, column=1, sticky="e")
         
         # Next Button
-        btn_next = ctk.CTkButton(frame, text="Next: Select Services", width=180, height=40, command=self.show_services_frame)
+        btn_next = ctk.CTkButton(frame, text="Next: Select Services", width=180, height=40, command=self.validate_directory_and_proceed)
         btn_next.grid(row=6, column=0, pady=(20, 10), sticky="e")
         
         return frame
+
+    def validate_directory_and_proceed(self):
+        d_dir = self.entry_deploy_path.get().strip()
+        if not d_dir:
+            return
+            
+        d_dir = os.path.normpath(d_dir)
+        os.environ["DEPLOY_DIR"] = d_dir
+        
+        # 1. Handle directory creation
+        if not os.path.exists(d_dir):
+            from tkinter import messagebox
+            create = messagebox.askyesno("Create Directory?", f"Directory '{d_dir}' does not exist. Create it?")
+            if create:
+                try:
+                    os.makedirs(d_dir, exist_ok=True)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to create directory: {str(e)}")
+                    return
+            else:
+                return
+                
+        # 2. Check for existing deployment
+        metadata_file = os.path.join(d_dir, ".metadata.json")
+        if os.path.exists(metadata_file):
+            # Show existing deployment menu
+            dialog = ctk.CTkToplevel(self)
+            dialog.title("Existing Deployment Detected")
+            dialog.geometry("500x320")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+            
+            x = self.winfo_x() + (self.winfo_width() // 2) - 250
+            y = self.winfo_y() + (self.winfo_height() // 2) - 160
+            dialog.geometry(f"+{x}+{y}")
+            
+            lbl_title = ctk.CTkLabel(dialog, text="Existing Deployment Found", font=ctk.CTkFont(size=18, weight="bold"))
+            lbl_title.pack(pady=(20, 10))
+            
+            msg = (
+                f"An existing DockerSetup stack was found at:\n{d_dir}\n\n"
+                f"What would you like to do?"
+            )
+            lbl_msg = ctk.CTkLabel(dialog, text=msg, wraplength=450, justify="center", font=ctk.CTkFont(size=13))
+            lbl_msg.pack(pady=10)
+            
+            def on_modify():
+                dialog.destroy()
+                # Reload metadata so checkbox selections are loaded properly
+                self.build_services_checkboxes()
+                self.show_services_frame()
+                
+            def on_upgrade():
+                dialog.destroy()
+                self.run_fast_upgrade(d_dir)
+                
+            def on_reset():
+                dialog.destroy()
+                self.run_full_reset(d_dir)
+                
+            def on_cancel():
+                dialog.destroy()
+                
+            btn_modify = ctk.CTkButton(dialog, text="Modify Selections (Re-run Wizard)", width=320, command=on_modify)
+            btn_modify.pack(pady=5)
+            
+            btn_upgrade = ctk.CTkButton(dialog, text="Fast Upgrade (Apply Template Updates)", width=320, command=on_upgrade)
+            btn_upgrade.pack(pady=5)
+            
+            btn_reset = ctk.CTkButton(dialog, text="Full Reset (Wipe All Configs & Volumes)", fg_color="red", hover_color="#8B0000", width=320, command=on_reset)
+            btn_reset.pack(pady=5)
+            
+            btn_cancel = ctk.CTkButton(dialog, text="Change Directory / Cancel", fg_color="transparent", border_width=1, width=320, command=on_cancel)
+            btn_cancel.pack(pady=(5, 20))
+        else:
+            # New deployment, proceed to selections
+            self.show_services_frame()
+
+    def run_fast_upgrade(self, d_dir):
+        # We can switch directly to the deploy frame, populate it, and trigger the deployment pipeline
+        self.show_deploy_frame()
+        self.log_text.delete("1.0", tk.END)
+        self.log_message("[INFO] Starting fast template upgrade...")
+        self.trigger_deployment_pipeline()
+        
+    def run_full_reset(self, d_dir):
+        from tkinter import messagebox
+        confirm = messagebox.askyesno(
+            "Permanent Wipe Warning", 
+            "Are you sure you want to permanently wipe all containers, volumes, and configurations in this directory?\n\nThis action cannot be undone."
+        )
+        if not confirm:
+            return
+            
+        # Run reset in background showing the log console
+        self.show_deploy_frame()
+        self.log_text.delete("1.0", tk.END)
+        self.btn_start_deploy.configure(state="disabled")
+        
+        def reset_worker():
+            try:
+                self.log_message("[INFO] Commencing full system reset...")
+                stacks_dir = os.path.join(d_dir, "stacks")
+                if os.path.exists(stacks_dir):
+                    for stack in os.listdir(stacks_dir):
+                        full_path = os.path.join(stacks_dir, stack)
+                        if os.path.isdir(full_path):
+                            compose_file = os.path.join(full_path, "docker-compose.yml")
+                            if os.path.exists(compose_file):
+                                self.log_message(f"[INFO] Tearing down stack: {stack}...")
+                                subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=full_path, capture_output=True, env=get_clean_env())
+                                
+                self.log_message("[INFO] Removing stack and configuration directories...")
+                shutil.rmtree(stacks_dir, ignore_errors=True)
+                shutil.rmtree(os.path.join(d_dir, "appdata"), ignore_errors=True)
+                
+                # Back up metadata and env files
+                for file in [".metadata.json", ".env"]:
+                    file_p = os.path.join(d_dir, file)
+                    if os.path.exists(file_p):
+                        try:
+                            shutil.copy2(file_p, file_p + ".bak")
+                            self.log_message(f"[INFO] Created backup: {file}.bak")
+                            os.remove(file_p)
+                        except Exception:
+                            pass
+                
+                # Clear state
+                import src.utils.state as state
+                state._metadata_cache = {}
+                
+                self.log_message("[SUCCESS] Reset complete. All containers and settings have been wiped!")
+                messagebox.showinfo("Reset Complete", "All configurations, volumes, and containers have been wiped cleanly.")
+                
+                # Relaunch Welcome
+                self.after(0, lambda: self.show_welcome_frame())
+            except Exception as e:
+                self.log_message(f"[ERROR] Reset failed: {str(e)}")
+            finally:
+                self.after(0, lambda: self.btn_start_deploy.configure(state="normal"))
+                
+        t = threading.Thread(target=reset_worker)
+        t.daemon = True
+        t.start()
 
     def run_preflight_checks(self):
         # Displays Docker, OS and Python preflight status labels in the UI container
@@ -243,34 +389,66 @@ class DockerSetupGUI(ctk.CTk):
     def create_services_view(self) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(2, weight=1)
+        frame.grid_rowconfigure(3, weight=1)
         
         lbl_title = ctk.CTkLabel(frame, text="Select Stack Services", font=ctk.CTkFont(size=24, weight="bold"))
         lbl_title.grid(row=0, column=0, pady=(10, 5), sticky="w")
         
         lbl_desc = ctk.CTkLabel(frame, text="Pick which media tools, database endpoints, and system management services you want to deploy in your stack.", font=ctk.CTkFont(size=13))
-        lbl_desc.grid(row=1, column=0, pady=(0, 10), sticky="w")
+        lbl_desc.grid(row=1, column=0, pady=(0, 5), sticky="w")
+        
+        # Toggle Switch for Advanced Setup
+        self.var_advanced_mode = tk.BooleanVar(value=False)
+        self.switch_advanced = ctk.CTkSwitch(
+            frame, 
+            text="Enable Advanced Custom Setup", 
+            variable=self.var_advanced_mode, 
+            command=self.on_advanced_switch_toggle,
+            font=ctk.CTkFont(size=13, weight="bold")
+        )
+        self.switch_advanced.grid(row=2, column=0, pady=(5, 5), sticky="w")
         
         # Scrollable container for checkboxes
         self.services_scroll = ctk.CTkScrollableFrame(frame)
-        self.services_scroll.grid(row=2, column=0, sticky="nsew", pady=10)
+        self.services_scroll.grid(row=3, column=0, sticky="nsew", pady=10)
         self.services_scroll.grid_columnconfigure((0, 1, 2), weight=1)
         
         self.chk_vars = {}
+        self.chk_buttons = {}
         self.build_services_checkboxes()
         
         # Navigation
         nav_buttons = ctk.CTkFrame(frame, fg_color="transparent")
-        nav_buttons.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        nav_buttons.grid(row=4, column=0, sticky="ew", pady=(10, 0))
         nav_buttons.grid_columnconfigure(0, weight=1)
         
         btn_back = ctk.CTkButton(nav_buttons, text="Back", width=100, command=self.show_welcome_frame)
         btn_back.grid(row=0, column=0, sticky="w")
         
-        btn_next = ctk.CTkButton(nav_buttons, text="Next: Configure Credentials", width=220, command=self.show_env_frame)
+        btn_next = ctk.CTkButton(nav_buttons, text="Next: Configure Credentials", width=220, command=self.check_recommendations_and_proceed)
         btn_next.grid(row=0, column=1, sticky="e")
         
         return frame
+
+    def on_advanced_switch_toggle(self):
+        is_advanced = self.var_advanced_mode.get()
+        
+        # Determine minimal keys
+        minimal_keys = []
+        if hasattr(self, "master_registry") and "MINIMAL" in self.master_registry:
+            minimal_keys = [svc.key for svc in self.master_registry["MINIMAL"]]
+            
+        for key, chk in self.chk_buttons.items():
+            if not is_advanced:
+                if key in minimal_keys:
+                    self.chk_vars[key].set(True)
+                else:
+                    self.chk_vars[key].set(False)
+                chk.configure(state="disabled")
+            else:
+                chk.configure(state="normal")
+        
+        self.on_checkbox_toggle()
 
     def build_services_checkboxes(self):
         # Categorize services based on types inside services.yml
@@ -287,6 +465,19 @@ class DockerSetupGUI(ctk.CTk):
         metadata = get_metadata()
         active_selections = metadata.get("selected_services", [])
         
+        # Resolve minimal keys
+        minimal_keys = []
+        if hasattr(self, "master_registry") and "MINIMAL" in self.master_registry:
+            minimal_keys = [svc.key for svc in self.master_registry["MINIMAL"]]
+            
+        # Determine initial switch state
+        if not active_selections:
+            active_selections = minimal_keys
+            self.var_advanced_mode.set(False)
+        else:
+            is_adv = not all(k in minimal_keys for k in active_selections)
+            self.var_advanced_mode.set(is_adv)
+            
         # Render category headers and service checkboxes
         for cat_name, entries in sorted(categories.items()):
             lbl_cat = ctk.CTkLabel(self.services_scroll, text=cat_name, font=ctk.CTkFont(size=14, weight="bold"), text_color=["#1F6AA5", "#3B8ED0"])
@@ -298,8 +489,10 @@ class DockerSetupGUI(ctk.CTk):
                 var = tk.BooleanVar(value=(entry.key in active_selections))
                 self.chk_vars[entry.key] = var
                 
-                chk = ctk.CTkCheckBox(self.services_scroll, text=f"{entry.key} (port {entry.port})" if entry.port and entry.port != "0" else entry.key, variable=var, command=self.on_checkbox_toggle)
+                chk_state = "normal" if self.var_advanced_mode.get() else "disabled"
+                chk = ctk.CTkCheckBox(self.services_scroll, text=f"{entry.key} (port {entry.port})" if entry.port and entry.port != "0" else entry.key, variable=var, command=self.on_checkbox_toggle, state=chk_state)
                 chk.grid(row=current_row, column=col_idx, padx=10, pady=5, sticky="w")
+                self.chk_buttons[entry.key] = chk
                 
                 col_idx += 1
                 if col_idx > 2:
@@ -308,6 +501,81 @@ class DockerSetupGUI(ctk.CTk):
             
             if col_idx > 0:
                 current_row += 1
+
+        self.on_checkbox_toggle()
+
+    def check_recommendations_and_proceed(self):
+        recommendations_map = {}
+        if hasattr(self, "master_registry") and "RECOMMENDATIONS" in self.master_registry:
+            for item in self.master_registry["RECOMMENDATIONS"]:
+                recommendations_map[item.source] = item.recommendations
+                
+        missing_recs = []
+        for svc in self.selected_services:
+            if svc in recommendations_map:
+                for rec in recommendations_map[svc]:
+                    rec = rec.strip()
+                    if rec and rec not in self.selected_services and rec not in missing_recs:
+                        if any(e.key == rec for e in self.registry):
+                            missing_recs.append(rec)
+                            
+        if missing_recs:
+            dialog = ctk.CTkToplevel(self)
+            dialog.title("Complete Your Stack Add-ons")
+            dialog.geometry("500x250")
+            dialog.resizable(False, False)
+            dialog.grab_set()
+            
+            x = self.winfo_x() + (self.winfo_width() // 2) - 250
+            y = self.winfo_y() + (self.winfo_height() // 2) - 125
+            dialog.geometry(f"+{x}+{y}")
+            
+            lbl_title = ctk.CTkLabel(dialog, text="Complete Your Stack?", font=ctk.CTkFont(size=18, weight="bold"))
+            lbl_title.pack(pady=(20, 10))
+            
+            msg = (
+                f"Based on your selections, we recommend adding the following companion services:\n\n"
+                f"{', '.join(missing_recs)}\n\n"
+                f"Would you like to automatically enable these recommended services?"
+            )
+            lbl_msg = ctk.CTkLabel(dialog, text=msg, wraplength=450, justify="center", font=ctk.CTkFont(size=13))
+            lbl_msg.pack(pady=10)
+            
+            btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
+            btn_frame.pack(pady=(20, 10))
+            
+            def on_yes():
+                # Temporarily enable state to toggle checkbox values programmatically
+                for rec in missing_recs:
+                    if rec in self.chk_vars:
+                        if rec in self.chk_buttons:
+                            self.chk_buttons[rec].configure(state="normal")
+                        self.chk_vars[rec].set(True)
+                        if not self.var_advanced_mode.get():
+                            if rec in self.chk_buttons:
+                                self.chk_buttons[rec].configure(state="disabled")
+                self.on_checkbox_toggle()
+                dialog.destroy()
+                self.show_env_frame()
+                
+            def on_no():
+                dialog.destroy()
+                self.show_env_frame()
+                
+            def on_cancel():
+                dialog.destroy()
+                
+            btn_yes = ctk.CTkButton(btn_frame, text="Yes, Enable All", width=120, command=on_yes)
+            btn_yes.grid(row=0, column=0, padx=10)
+            
+            btn_no = ctk.CTkButton(btn_frame, text="No, Skip", width=120, fg_color="gray", hover_color="dimgray", command=on_no)
+            btn_no.grid(row=0, column=1, padx=10)
+            
+            btn_cancel = ctk.CTkButton(btn_frame, text="Go Back", width=120, fg_color="transparent", border_width=1, command=on_cancel)
+            btn_cancel.grid(row=0, column=2, padx=10)
+            
+        else:
+            self.show_env_frame()
 
     def on_checkbox_toggle(self):
         # Synchronize local list
@@ -351,27 +619,20 @@ class DockerSetupGUI(ctk.CTk):
         self.selected_services = {key for key, var in self.chk_vars.items() if var.get()}
         self.env_entries = {}
         
-        # Map out fields based on selections
-        fields = [
-            ("TZ", "System Timezone (e.g. America/New_York)", "America/New_York"),
-            ("PUID", "Local User PID (Default: 1000)", "1000"),
-            ("PGID", "Local Group GID (Default: 1000)", "1000")
-        ]
-        
-        if "plex" in self.selected_services:
-            fields.append(("PLEX_CLAIM", "Plex Claim Token (plex.tv/claim)", ""))
-        if "tailscale" in self.selected_services:
-            fields.append(("TS_AUTHKEY", "Tailscale Auth Key", ""))
-        if "cloudflare-ddns" in self.selected_services:
-            fields.append(("CF_API_TOKEN", "Cloudflare API Token", ""))
-            fields.append(("CF_ZONE_ID", "Cloudflare Zone ID", ""))
-            
-        # Generate inputs
-        row_idx = 0
         metadata = get_metadata()
         saved_env = metadata.get("env_vars", {})
         
-        for key, description, default_val in fields:
+        import platform
+        detected_tz = detect_timezone()
+        default_tz = saved_env.get("TZ", detected_tz)
+        default_puid = saved_env.get("PUID", os.environ.get("SUDO_UID", "1000"))
+        default_pgid = saved_env.get("PGID", os.environ.get("SUDO_GID", "1000"))
+        default_media = saved_env.get("DRIVEPOOL", "D:/Media" if platform.system() == "Windows" else os.path.expanduser("~/media"))
+        
+        row_idx = 0
+        
+        def add_standard_row(key, description, default_val):
+            nonlocal row_idx
             lbl = ctk.CTkLabel(self.env_scroll, text=f"{key}:", font=ctk.CTkFont(size=12, weight="bold"))
             lbl.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
             
@@ -382,6 +643,116 @@ class DockerSetupGUI(ctk.CTk):
             
             self.env_entries[key] = entry
             row_idx += 1
+            
+        # Timezone Combobox
+        lbl_tz = ctk.CTkLabel(self.env_scroll, text="TZ (Timezone):", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_tz.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+        
+        cb_tz = ttk.Combobox(self.env_scroll, values=COMMON_ZONES, width=37, state="readonly")
+        cb_tz.set(default_tz)
+        cb_tz.grid(row=row_idx, column=1, padx=10, pady=5, sticky="w")
+        self.env_entries["TZ"] = cb_tz
+        row_idx += 1
+        
+        # PUID & PGID
+        add_standard_row("PUID", "Local User PID (Default: 1000)", default_puid)
+        add_standard_row("PGID", "Local Group GID (Default: 1000)", default_pgid)
+        
+        # HTTP_USERNAME & HTTP_PASSWORD
+        add_standard_row("HTTP_USERNAME", "Management Username (Default: admin)", "admin")
+        
+        lbl_pass = ctk.CTkLabel(self.env_scroll, text="HTTP_PASSWORD:", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_pass.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+        
+        pass_frame = ctk.CTkFrame(self.env_scroll, fg_color="transparent")
+        pass_frame.grid(row=row_idx, column=1, padx=10, pady=5, sticky="ew")
+        
+        entry_pass = ctk.CTkEntry(pass_frame, placeholder_text="Management Password (leave blank to generate)", show="*", width=330)
+        entry_pass.insert(0, saved_env.get("HTTP_PASSWORD", ""))
+        entry_pass.grid(row=0, column=0, sticky="ew")
+        
+        def toggle_pass():
+            if entry_pass.cget("show") == "*":
+                entry_pass.configure(show="")
+                btn_toggle.configure(text="Hide")
+            else:
+                entry_pass.configure(show="*")
+                btn_toggle.configure(text="Show")
+                
+        btn_toggle = ctk.CTkButton(pass_frame, text="Show", width=60, command=toggle_pass)
+        btn_toggle.grid(row=0, column=1, padx=(10, 0))
+        
+        self.env_entries["HTTP_PASSWORD"] = entry_pass
+        row_idx += 1
+        
+        # DRIVEPOOL (Media folder directory) with Browse button
+        lbl_media = ctk.CTkLabel(self.env_scroll, text="DRIVEPOOL (Media Folder):", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_media.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+        
+        media_frame = ctk.CTkFrame(self.env_scroll, fg_color="transparent")
+        media_frame.grid(row=row_idx, column=1, padx=10, pady=5, sticky="ew")
+        
+        entry_media = ctk.CTkEntry(media_frame, placeholder_text="Media folder directory path", width=330)
+        entry_media.insert(0, default_media)
+        entry_media.grid(row=0, column=0, sticky="ew")
+        
+        def browse_media():
+            folder = filedialog.askdirectory(initialdir=entry_media.get())
+            if folder:
+                entry_media.delete(0, tk.END)
+                entry_media.insert(0, os.path.normpath(folder))
+                
+        btn_browse = ctk.CTkButton(media_frame, text="Browse...", width=60, command=browse_media)
+        btn_browse.grid(row=0, column=1, padx=(10, 0))
+        
+        self.env_entries["DRIVEPOOL"] = entry_media
+        row_idx += 1
+        
+        if "plex" in self.selected_services:
+            add_standard_row("PLEX_CLAIM", "Plex Claim Token (plex.tv/claim)", "")
+            
+        if "tailscale" in self.selected_services:
+            add_standard_row("TS_AUTHKEY", "Tailscale Auth Key", "")
+            
+        if "cloudflare-ddns" in self.selected_services:
+            add_standard_row("CF_API_TOKEN", "Cloudflare API Token", "")
+            add_standard_row("CF_ZONE_ID", "Cloudflare Zone ID", "")
+            add_standard_row("CF_DOMAINS", "Cloudflare Domains (comma-separated)", "")
+            
+        if "cloudflare-ddns" in self.selected_services or "npm plus (+goaccess)" in self.selected_services:
+            add_standard_row("BASE_DOMAIN", "Base Domain (e.g. example.com)", "local.host")
+            
+        if "qbittorrent-vpn" in self.selected_services:
+            add_standard_row("VPN_PROV", "VPN Provider (e.g. custom, mullvad, pia)", "custom")
+            add_standard_row("VPN_CLIENT", "VPN Client (e.g. wireguard, openvpn)", "wireguard")
+            add_standard_row("VPN_USER", "VPN Username (leave blank if not required)", "")
+            
+            lbl_vpn_pass = ctk.CTkLabel(self.env_scroll, text="VPN_PASS:", font=ctk.CTkFont(size=12, weight="bold"))
+            lbl_vpn_pass.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+            
+            vpn_pass_frame = ctk.CTkFrame(self.env_scroll, fg_color="transparent")
+            vpn_pass_frame.grid(row=row_idx, column=1, padx=10, pady=5, sticky="ew")
+            
+            entry_vpn_pass = ctk.CTkEntry(vpn_pass_frame, placeholder_text="VPN Password", show="*", width=330)
+            entry_vpn_pass.insert(0, saved_env.get("VPN_PASS", ""))
+            entry_vpn_pass.grid(row=0, column=0, sticky="ew")
+            
+            def toggle_vpn_pass():
+                if entry_vpn_pass.cget("show") == "*":
+                    entry_vpn_pass.configure(show="")
+                    btn_vpn_toggle.configure(text="Hide")
+                else:
+                    entry_vpn_pass.configure(show="*")
+                    btn_vpn_toggle.configure(text="Show")
+                    
+            btn_vpn_toggle = ctk.CTkButton(vpn_pass_frame, text="Show", width=60, command=toggle_vpn_pass)
+            btn_vpn_toggle.grid(row=0, column=1, padx=(10, 0))
+            
+            self.env_entries["VPN_PASS"] = entry_vpn_pass
+            row_idx += 1
+            
+            from src.modules.env_wizard import detect_lan_network
+            add_standard_row("LAN_NETWORK", "Local Network Range (e.g. 192.168.1.0/24)", detect_lan_network())
 
     def save_current_selections(self):
         # Updates config metadata
@@ -392,7 +763,31 @@ class DockerSetupGUI(ctk.CTk):
         for key, entry in self.env_entries.items():
             env_dict[key] = entry.get().strip()
             
+        # Ensure HTTP_PASSWORD is not empty (auto-generate if blank)
+        if not env_dict.get("HTTP_PASSWORD"):
+            env_dict["HTTP_PASSWORD"] = new_random_password()
+            
         os.environ["DEPLOY_DIR"] = self.entry_deploy_path.get().strip()
+        
+        env_dict["DOCKERDIR"] = self.entry_deploy_path.get().strip()
+        env_dict["USERDIR"] = self.entry_deploy_path.get().strip()
+        
+        # Generate secure backend database & Kopia passwords (CLI Parity)
+        for key in ["MYSQL_ROOT_PASSWORD", "MYSQL_USER", "MYSQL_PASSWORD", "DB_PASS", "MONGO_PASS", "KOPIA_PASSWORD", "CROWDSEC_API_KEY"]:
+            metadata = get_metadata()
+            saved_env = metadata.get("env_vars", {})
+            
+            if key not in env_dict or not env_dict[key]:
+                if saved_env.get(key):
+                    env_dict[key] = saved_env.get(key)
+                elif key == "MYSQL_USER":
+                    env_dict[key] = "mediauser"
+                elif key == "CROWDSEC_API_KEY":
+                    env_dict[key] = new_random_password() if "crowdsec" in self.selected_services else ""
+                else:
+                    env_dict[key] = new_random_password()
+                    
+        env_dict["CROWDSEC_ENABLED"] = "true" if "crowdsec" in self.selected_services else "false"
         
         # Save to state manager
         metadata = get_metadata()
@@ -403,32 +798,70 @@ class DockerSetupGUI(ctk.CTk):
     # ==========================================
     # 4. DEPLOY FRAME CREATION
     # ==========================================
+    # ==========================================
+    # 4. DEPLOY FRAME CREATION
+    # ==========================================
     def create_deploy_view(self) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(3, weight=1)
+        frame.grid_rowconfigure(4, weight=1)
         
         lbl_title = ctk.CTkLabel(frame, text="Orchestration & Deploy", font=ctk.CTkFont(size=24, weight="bold"))
         lbl_title.grid(row=0, column=0, pady=(10, 5), sticky="w")
         
         # Display Summaries
         self.lbl_deploy_summary = ctk.CTkLabel(frame, text="", justify="left", font=ctk.CTkFont(size=13))
-        self.lbl_deploy_summary.grid(row=1, column=0, pady=(5, 10), sticky="w")
+        self.lbl_deploy_summary.grid(row=1, column=0, pady=(5, 5), sticky="w")
+        
+        # Progress Indicators Frame
+        progress_control_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        progress_control_frame.grid(row=2, column=0, sticky="ew", pady=5)
+        progress_control_frame.grid_columnconfigure(0, weight=1)
+        
+        # Steps Indicator
+        self.steps_frame = ctk.CTkFrame(progress_control_frame, corner_radius=8)
+        self.steps_frame.grid(row=0, column=0, sticky="ew", pady=5)
+        self.steps_frame.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+        
+        self.step_indicators = {}
+        steps_list = [
+            ("Preflight", "Preflight"),
+            ("Dirs", "Directories"),
+            ("Network", "Networks"),
+            ("Compose", "Compose"),
+            ("Containers", "Containers"),
+            ("Stitch", "Stitching")
+        ]
+        
+        for idx, (key, name) in enumerate(steps_list):
+            lbl_step = ctk.CTkLabel(self.steps_frame, text=f"• {name}: Ready", font=ctk.CTkFont(size=11))
+            lbl_step.grid(row=0, column=idx, padx=5, pady=8, sticky="ew")
+            self.step_indicators[key] = lbl_step
+            
+        # Progress Bar
+        self.progress_bar = ctk.CTkProgressBar(progress_control_frame)
+        self.progress_bar.grid(row=1, column=0, sticky="ew", pady=(5, 10))
+        self.progress_bar.set(0.0)
+        
+        # Verbose Toggle
+        self.var_verbose = tk.BooleanVar(value=False)
+        self.chk_verbose = ctk.CTkCheckBox(progress_control_frame, text="Enable Verbose (Debug) Logging", variable=self.var_verbose)
+        self.chk_verbose.grid(row=2, column=0, sticky="w", pady=(0, 5))
         
         # Deployment Button
         self.btn_start_deploy = ctk.CTkButton(frame, text="Deploy Stack Now", height=45, fg_color="green", hover_color="#006400", font=ctk.CTkFont(size=15, weight="bold"), command=self.trigger_deployment_pipeline)
-        self.btn_start_deploy.grid(row=2, column=0, pady=10, sticky="ew")
+        self.btn_start_deploy.grid(row=3, column=0, pady=10, sticky="ew")
         
         # Real-time console log
-        self.log_text = tk.Text(frame, wrap="word", height=15, bg="#1e1e1e", fg="#d4d4d4", font=("Courier", 11), borderwidth=0)
-        self.log_text.grid(row=3, column=0, sticky="nsew", pady=(5, 10))
+        self.log_text = tk.Text(frame, wrap="word", height=12, bg="#1e1e1e", fg="#d4d4d4", font=("Courier", 11), borderwidth=0)
+        self.log_text.grid(row=4, column=0, sticky="nsew", pady=(5, 10))
         
         # Navigation
-        nav_buttons = ctk.CTkFrame(frame, fg_color="transparent")
-        nav_buttons.grid(row=4, column=0, sticky="ew", pady=(10, 0))
-        nav_buttons.grid_columnconfigure(0, weight=1)
+        self.deploy_nav_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        self.deploy_nav_frame.grid(row=5, column=0, sticky="ew", pady=(10, 0))
+        self.deploy_nav_frame.grid_columnconfigure(0, weight=1)
         
-        btn_back = ctk.CTkButton(nav_buttons, text="Back", width=100, command=self.show_env_frame)
+        btn_back = ctk.CTkButton(self.deploy_nav_frame, text="Back", width=100, command=self.show_env_frame)
         btn_back.grid(row=0, column=0, sticky="w")
         
         return frame
@@ -470,61 +903,305 @@ class DockerSetupGUI(ctk.CTk):
         t.daemon = True
         t.start()
 
+    def update_step_status(self, key: str, status: str, color: str = None):
+        def run():
+            if key in self.step_indicators:
+                steps_names = {
+                    "Preflight": "Preflight",
+                    "Dirs": "Directories",
+                    "Network": "Networks",
+                    "Compose": "Compose",
+                    "Containers": "Containers",
+                    "Stitch": "Stitching"
+                }
+                name = steps_names.get(key, key)
+                symbol = "•"
+                if status == "Running":
+                    symbol = "⚙"
+                elif status == "Completed":
+                    symbol = "✓"
+                elif status == "Failed":
+                    symbol = "✗"
+                
+                text = f"{symbol} {name}: {status}"
+                self.step_indicators[key].configure(text=text)
+                if color:
+                    self.step_indicators[key].configure(text_color=color)
+        self.after(0, run)
+
+    def update_progress_bar(self, value: float):
+        self.after(0, lambda: self.progress_bar.set(value))
+
     def deployment_worker(self):
         deploy_dir = get_deploy_dir()
         
-        try:
-            self.log_message("[INFO] Starting deployment preflight checks...")
-            # Set up logger redirect
-            set_log_path(os.path.join(deploy_dir, "logs", "setup.log"))
+        # Reset step indicators and progress bar
+        for key in self.step_indicators:
+            self.update_step_status(key, "Ready", color=["#000000", "#FFFFFF"])
+        self.update_progress_bar(0.0)
+        
+        # Check verbose setting
+        if self.var_verbose.get():
+            os.environ["DEBUG_LOGGING"] = "true"
+        else:
+            os.environ["DEBUG_LOGGING"] = "false"
             
-            # 1. Directories setup
-            self.log_message("[INFO] Setting up directories...")
+        try:
+            # 1. Preflight
+            self.update_step_status("Preflight", "Running", "#FFCC00")
+            self.update_progress_bar(0.1)
+            self.log_message("[INFO] Starting preflight system validation checks...")
+            set_log_path(os.path.join(deploy_dir, "logs", "setup.log"))
+            run_system_preflight()
+            self.update_step_status("Preflight", "Completed", "green")
+            
+            # 2. Directories
+            self.update_step_status("Dirs", "Running", "#FFCC00")
+            self.update_progress_bar(0.25)
+            self.log_message("[INFO] Constructing deployment folder structures...")
             metadata = get_metadata()
             setup_directories()
+            self.update_step_status("Dirs", "Completed", "green")
             
-            # 2. Write variables into target env
-            self.log_message("[INFO] Writing variables to deployment environment...")
+            # 3. Environment Secrets and Networks
+            self.update_step_status("Network", "Running", "#FFCC00")
+            self.update_progress_bar(0.4)
+            self.log_message("[INFO] Writing environment variables and constructing secure Docker networks...")
             env_vars = metadata.get("env_vars", {})
             env_path = os.path.normpath(os.path.join(deploy_dir, ".env"))
-            with open(env_path, "w") as f:
+            with open(env_path, "w", encoding="utf-8") as f:
                 for k, v in env_vars.items():
                     f.write(f"{k}={v}\n")
-                    
-            # 3. Create networks
-            self.log_message("[INFO] Constructing overlay network definitions...")
             setup_networks()
+            self.update_step_status("Network", "Completed", "green")
             
-            # 4. Generate Compose stack files
-            self.log_message("[INFO] Generating stack orchestration files from templates...")
+            # 4. Compose build
+            self.update_step_status("Compose", "Running", "#FFCC00")
+            self.update_progress_bar(0.6)
+            self.log_message("[INFO] Generating Docker Compose stacks config files...")
             build_compose_stacks()
+            self.update_step_status("Compose", "Completed", "green")
             
-            # 5. Relaunch/Stitch logic
-            self.log_message("[INFO] Executing compose starts and image downloads...")
-            # We redirect standard stdout print channels to the gui log during subprocess start
+            # 5. Launch containers
+            self.update_step_status("Containers", "Running", "#FFCC00")
+            self.update_progress_bar(0.8)
+            self.log_message("[INFO] Executing compose pulls and starting container stacks in parallel...")
             deploy_stacks()
             
             # Sync .env
-            self.log_message("[INFO] Syncing environment secrets across stacks...")
             stacks_dir = os.path.join(deploy_dir, "stacks")
             if os.path.exists(stacks_dir):
                 for name in os.listdir(stacks_dir):
                     fpath = os.path.join(stacks_dir, name)
                     if os.path.isdir(fpath):
-                        shutil.copy(env_path, os.path.join(fpath, ".env"))
+                        try:
+                            shutil.copy(env_path, os.path.join(fpath, ".env"))
+                        except Exception:
+                            pass
+            self.update_step_status("Containers", "Completed", "green")
             
-            # 6. Auto Config connections
-            self.log_message("[INFO] Commencing auto-configure API stitching services...")
+            # 6. Auto config
+            self.update_step_status("Stitch", "Running", "#FFCC00")
+            self.update_progress_bar(0.9)
+            self.log_message("[INFO] Commencing automated API token alignment and dashboard stitching...")
             auto_stitch_services()
+            self.update_step_status("Stitch", "Completed", "green")
             
-            self.log_message("[SUCCESS] DockerSetup media stack has been successfully deployed!")
+            self.update_progress_bar(1.0)
+            self.log_message("[SUCCESS] Setup successfully deployed!")
+            
+            # Load the Post-Deployment dashboard directly upon successful run!
+            self.after(500, self.show_post_deploy_summary)
             
         except Exception as e:
-            self.log_message(f"[ERROR] Deployment pipeline failed: {str(e)}")
-            
+            for k in ["Preflight", "Dirs", "Network", "Compose", "Containers", "Stitch"]:
+                txt = self.step_indicators[k].cget("text")
+                if "⚙" in txt or "Running" in txt:
+                    self.update_step_status(k, "Failed", "red")
+            self.log_message(f"[ERROR] Setup failed: {str(e)}")
+            import traceback
+            write_log(traceback.format_exc(), level="ERROR")
         finally:
-            # Re-enable button in main thread
             self.after(0, lambda: self.btn_start_deploy.configure(state="normal", text="Deploy Stack Now"))
+
+    def show_post_deploy_summary(self):
+        self.select_sidebar_button(None)
+        self.hide_all_frames()
+        
+        if hasattr(self, "summary_view_frame"):
+            self.summary_view_frame.destroy()
+            
+        self.summary_view_frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
+        self.summary_view_frame.grid(row=0, column=0, sticky="nsew")
+        self.summary_view_frame.grid_columnconfigure(0, weight=1)
+        self.summary_view_frame.grid_rowconfigure(2, weight=1)
+        
+        lbl_title = ctk.CTkLabel(self.summary_view_frame, text="Setup Summary Dashboard", font=ctk.CTkFont(size=24, weight="bold"))
+        lbl_title.grid(row=0, column=0, pady=(10, 5), sticky="w")
+        
+        lbl_desc = ctk.CTkLabel(self.summary_view_frame, text="Your Media and Home Server stack is successfully deployed. Use this dashboard to manage your credentials and links.", font=ctk.CTkFont(size=13))
+        lbl_desc.grid(row=1, column=0, pady=(0, 10), sticky="w")
+        
+        # Tabview layout
+        tabview = ctk.CTkTabview(self.summary_view_frame)
+        tabview.grid(row=2, column=0, sticky="nsew", pady=10)
+        
+        tab_status = tabview.add("Service Status")
+        tab_widgets = tabview.add("Widget Setup")
+        tab_guide = tabview.add("Next Steps")
+        
+        self.build_status_tab(tab_status)
+        self.build_widgets_tab(tab_widgets)
+        self.build_guide_tab(tab_guide)
+        
+        btn_exit = ctk.CTkButton(self.summary_view_frame, text="Done & Exit", width=150, height=35, command=self.destroy)
+        btn_exit.grid(row=3, column=0, pady=(10, 0), sticky="e")
+
+    def build_status_tab(self, tab):
+        tab.grid_columnconfigure(0, weight=1)
+        scroll = ctk.CTkScrollableFrame(tab)
+        scroll.pack(fill="both", expand=True, padx=5, pady=5)
+        scroll.grid_columnconfigure((0, 1, 2), weight=1)
+        
+        from src.modules.auto_configure import test_port
+        metadata = get_metadata()
+        selected = metadata.get("selected_services", [])
+        
+        lbl_header_svc = ctk.CTkLabel(scroll, text="Service Name", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_header_svc.grid(row=0, column=0, padx=10, pady=5, sticky="w")
+        
+        lbl_header_status = ctk.CTkLabel(scroll, text="Status", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_header_status.grid(row=0, column=1, padx=10, pady=5, sticky="w")
+        
+        lbl_header_action = ctk.CTkLabel(scroll, text="Action", font=ctk.CTkFont(size=12, weight="bold"))
+        lbl_header_action.grid(row=0, column=2, padx=10, pady=5, sticky="w")
+        
+        row_idx = 1
+        for entry in self.registry:
+            if entry.key in selected:
+                port = int(entry.port) if entry.port and entry.port.isdigit() else 0
+                is_online = False
+                if port > 0:
+                    is_online = test_port("localhost", port)
+                    
+                status_text = "ONLINE" if is_online else "OFFLINE"
+                status_color = "green" if is_online else "red"
+                
+                lbl_name = ctk.CTkLabel(scroll, text=entry.key)
+                lbl_name.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+                
+                lbl_stat = ctk.CTkLabel(scroll, text=status_text, text_color=status_color, font=ctk.CTkFont(weight="bold"))
+                lbl_stat.grid(row=row_idx, column=1, padx=10, pady=5, sticky="w")
+                
+                url = f"http://localhost:{port}" if port > 0 else ""
+                
+                def open_link(u=url):
+                    if u:
+                        import webbrowser
+                        webbrowser.open(u)
+                        
+                if url:
+                    btn_link = ctk.CTkButton(scroll, text="Open Web UI", width=100, command=open_link)
+                    btn_link.grid(row=row_idx, column=2, padx=10, pady=5, sticky="w")
+                else:
+                    lbl_nolink = ctk.CTkLabel(scroll, text="No Web Interface", font=ctk.CTkFont(slant="italic"))
+                    lbl_nolink.grid(row=row_idx, column=2, padx=10, pady=5, sticky="w")
+                    
+                row_idx += 1
+
+    def build_widgets_tab(self, tab):
+        tab.grid_columnconfigure(0, weight=1)
+        scroll = ctk.CTkScrollableFrame(tab)
+        scroll.pack(fill="both", expand=True, padx=5, pady=5)
+        scroll.grid_columnconfigure(1, weight=1)
+        
+        metadata = get_metadata()
+        selected = metadata.get("selected_services", [])
+        
+        manual_services = []
+        if "plex" in selected:
+            manual_services.append(("PLEX_TOKEN", "Plex API Token", "Open Plex -> Settings -> Web Client (General) -> 'Show Advanced' -> Scroll for Token."))
+        if "jellyfin" in selected:
+            manual_services.append(("JELLYFIN_KEY", "Jellyfin API Key", "Open Jellyfin -> Dashboard -> API Keys -> Create key named 'Homepage'."))
+        if "portainer" in selected:
+            manual_services.append(("PORTAINER_KEY", "Portainer API Token", "Open Portainer -> User Settings -> Access Tokens -> Create token."))
+            
+        if not manual_services:
+            lbl_no = ctk.CTkLabel(scroll, text="No services require manual API tokens for widget setup.", font=ctk.CTkFont(size=14, slant="italic"))
+            lbl_no.pack(pady=50)
+            return
+            
+        lbl_info = ctk.CTkLabel(scroll, text="Paste tokens below to display rich container widgets in your Homepage dashboard.", justify="left", font=ctk.CTkFont(size=12))
+        lbl_info.grid(row=0, column=0, columnspan=2, padx=10, pady=(5, 15), sticky="w")
+        
+        row_idx = 1
+        entries_dict = {}
+        deploy_dir = get_deploy_dir()
+        env_path = os.path.join(deploy_dir, ".env")
+        
+        current_vars = {}
+        if os.path.exists(env_path):
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    match = re.match(r"^([^=]+)=(.*)$", line)
+                    if match:
+                        current_vars[match.group(1).strip()] = match.group(2).strip()
+                        
+        for var_name, name, hint in manual_services:
+            lbl_name = ctk.CTkLabel(scroll, text=f"{name} ({var_name}):", font=ctk.CTkFont(weight="bold"))
+            lbl_name.grid(row=row_idx, column=0, padx=10, pady=5, sticky="w")
+            
+            entry = ctk.CTkEntry(scroll, placeholder_text=hint, width=320)
+            entry.insert(0, current_vars.get(var_name, ""))
+            entry.grid(row=row_idx, column=1, padx=10, pady=5, sticky="ew")
+            entries_dict[var_name] = entry
+            row_idx += 1
+            
+        def save_widget_keys():
+            from src.utils.state import set_env_var
+            saved_count = 0
+            for var_name, entry in entries_dict.items():
+                val = entry.get().strip()
+                if val:
+                    set_env_var(var_name, val, file_path=env_path)
+                    saved_count += 1
+                    
+            if saved_count > 0:
+                from tkinter import messagebox
+                messagebox.showinfo("Keys Saved", f"Successfully saved {saved_count} API tokens to .env configuration! Reloading dashboard...")
+                def reload_hp():
+                    try:
+                        hp_path = os.path.join(deploy_dir, "stacks", "maintenance")
+                        if os.path.exists(hp_path):
+                            subprocess.run(["docker", "compose", "up", "-d", "--remove-orphans"], cwd=hp_path, capture_output=True, env=get_clean_env())
+                    except Exception:
+                        pass
+                t = threading.Thread(target=reload_hp)
+                t.daemon = True
+                t.start()
+                
+        btn_save = ctk.CTkButton(scroll, text="Save & Sync Tokens", command=save_widget_keys)
+        btn_save.grid(row=row_idx, column=0, columnspan=2, padx=10, pady=15)
+
+    def build_guide_tab(self, tab):
+        scroll = ctk.CTkScrollableFrame(tab)
+        scroll.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        guide_text = (
+            "Congratulations! Your media server stack is fully operational.\n\n"
+            "GETTING STARTED GUIDE:\n"
+            "1. Access Homepage Dashboard: Open http://localhost:8080 in your browser to view your stack.\n"
+            "2. Access Docker Manager (Dockge): Open http://localhost:5001 to monitor container stacks and logs.\n"
+            "3. Prowlarr Indexers: Open Prowlarr to verify indexers. They automatically synchronize to Radarr and Sonarr.\n"
+            "4. SABnzbd / qBittorrent: Verify downloads folder configuration paths match the mounted root volumes (/downloads).\n\n"
+            "CLEANUP WARNING:\n"
+            "If you de-selected any services during this run, their container instances have been stopped and deleted cleanly. "
+            "However, to protect your data, their persistent files remain in the appdata/ and stacks/ directory. "
+            "You can manually delete them to reclaim disk space if you do not plan to use them again."
+        )
+        
+        lbl_guide = ctk.CTkLabel(scroll, text=guide_text, justify="left", wraplength=550, font=ctk.CTkFont(size=12))
+        lbl_guide.pack(padx=10, pady=10)
 
 if __name__ == "__main__":
     app = DockerSetupGUI()
