@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [1.5.42] - 2026-06-11
 ### Fixed
-- **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`, and utilized PowerShell's `Start-Process` to handle GUI relaunch reliably.
+- **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`, and utilized PowerShell's `Start-Process` to handle GUI relaunch reliably. For Unix/Linux systems, utilized `os.execve` to pass a clean environment block explicitly and prevent PyInstaller path pollution from crashing the relaunched GUI.
 - **[GUI]** Added a real-time log queue redirection callback interface to `logger.py` to fix verbose logs toggle behavior in both text windows.
 - **[GUI]** Added automatic detection and cleanup of logs directory collision at startup and log-loading phases.
 - **[GUI]** Excluded FlareSolverr, database engines, and non-UI companion services from getting a Web UI button in the post-deployment dashboard.
