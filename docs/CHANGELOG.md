@@ -4,13 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [1.5.42] - 2026-06-11
 ### Fixed
-- **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`.
+- **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`, and utilized PowerShell's `Start-Process` to handle GUI relaunch reliably.
 - **[GUI]** Added a real-time log queue redirection callback interface to `logger.py` to fix verbose logs toggle behavior in both text windows.
 - **[GUI]** Added automatic detection and cleanup of logs directory collision at startup and log-loading phases.
 - **[GUI]** Excluded FlareSolverr, database engines, and non-UI companion services from getting a Web UI button in the post-deployment dashboard.
 - **[GUI]** Monkey-patched `darkdetect` theme-checks on Linux to avoid blocking subprocess calls and prevent application crashes.
 - **[GUI]** Implemented dynamic screen scaling auto-detection on Linux using native Tcl DPI metrics, and added a manual UI scaling override dropdown in the sidebar.
-- **[GUI]** Restructured popup dialogues to use a generic, z-indexed `center_over_parent` centering handler.
+- **[GUI]** Restructured popup dialogues to use a generic, z-indexed `center_over_parent` centering handler, and deferred `grab_set()` invocation until visibility mapping occurs to prevent TclError crashes on Linux/X11 window managers.
 - **[GUI]** Restricted sidebar menu navigation to completed wizard steps, locking ahead-of-time step skipping while allowing backward traversal.
 - **[Main]** Renamed `DRIVEPOOL` to `DATADRIVE` completely across environment variables, compose templates, and tests.
 
