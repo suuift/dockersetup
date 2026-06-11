@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.46] - 2026-06-11
+### Fixed
+- **[GUI]** Optimized Advanced/Minimal setup visibility toggling to reuse layouts instantly rather than rebuilding all widgets from scratch, eliminating layout switches lag.
+- **[GUI]** Synchronized the manual sidebar scale resizer OptionMenu selection value dynamically during automatic window resizes.
+- **[GUI]** Passed a clean environment block explicitly when opening the Plex Claim token page using `xdg-open` / `open` to prevent Flatpak dynamic linking OpenSSL version mismatch errors.
+
 ## [1.5.45] - 2026-06-11
 ### Added
 - **[GUI]** Implemented debounced dynamic window auto-scaling on `<Configure>` resize events to adjust widget scale smoothly when window bounds stabilize, preventing rendering recursions.
