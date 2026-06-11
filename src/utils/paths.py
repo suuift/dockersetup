@@ -58,4 +58,6 @@ def get_clean_env() -> dict:
             env[var] = env[orig_var]
         else:
             env.pop(var, None)
+    # Remove PyInstaller-specific internal variables so that relaunched binaries extract cleanly
+    env.pop("_MEIPASS", None)
     return env
