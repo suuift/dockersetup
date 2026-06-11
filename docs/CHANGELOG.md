@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [1.5.42] - 2026-06-11
+## [1.5.43] - 2026-06-11
 ### Fixed
 - **[Updater]** Elevated the silent installation execution using PowerShell `Start-Process -Verb RunAs -Wait` to ensure updates successfully run with administrative privileges in protected directories like `C:\Program Files`, and utilized PowerShell's `Start-Process` to handle GUI relaunch reliably. For Unix/Linux systems, utilized `os.execve` to pass a clean environment block explicitly and prevent PyInstaller path pollution from crashing the relaunched GUI.
 - **[GUI]** Added a real-time log queue redirection callback interface to `logger.py` to fix verbose logs toggle behavior in both text windows.
