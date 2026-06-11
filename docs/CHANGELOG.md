@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.36] - 2026-06-11
+### Fixed
+- **[Installer]** Added `shellexec` flag to the Inno Setup run configurations to allow standard user installers to spawn UAC-elevated GUI applications cleanly on completion without throwing Error 740.
+
 ## [1.5.35] - 2026-06-11
 ### Fixed
 - **[GUI]** Fixed the dynamic import crash caused by importing the non-existent helper `set_deploy_dir` inside the GUI module.

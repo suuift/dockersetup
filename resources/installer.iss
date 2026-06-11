@@ -3,7 +3,7 @@
 
 [Setup]
 AppName=DockerSetup
-AppVersion=1.5.35
+AppVersion=1.5.36
 AppPublisher=suuift
 AppPublisherURL=https://github.com/suuift/dockersetup
 DefaultDirName={localappdata}\DockerSetup
@@ -25,4 +25,4 @@ Name: "{group}\DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{us
 Name: "{userdesktop}\DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{userdocs}"
 
 [Run]
-Description: "Launch DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{userdocs}"; Flags: postinstall nowait
+Description: "Launch DockerSetup"; Filename: "{app}\dockersetup.exe"; WorkingDir: "{userdocs}"; Flags: postinstall nowait shellexec
