@@ -143,7 +143,7 @@ class DockerSetupGUI(ctk.CTk):
         self.btn_deploy = ctk.CTkButton(self.sidebar_frame, text="4. Deploy", anchor="w", command=self.show_deploy_frame)
         self.btn_deploy.grid(row=5, column=0, padx=20, pady=10, sticky="new")
         
-        self.btn_logs = ctk.CTkButton(self.sidebar_frame, text="5. View Logs", anchor="w", command=self.show_logs_frame)
+        self.btn_logs = ctk.CTkButton(self.sidebar_frame, text="View Logs", anchor="w", command=self.show_logs_frame)
         self.btn_logs.grid(row=6, column=0, padx=20, pady=10, sticky="new")
         
         # Appearance Mode Selector in Sidebar bottom
@@ -184,7 +184,27 @@ class DockerSetupGUI(ctk.CTk):
         
         # Initialize default log path on startup
         initial_deploy = get_deploy_dir()
-        set_log_path(os.path.join(initial_deploy, "logs"))
+        log_dir = os.path.join(initial_deploy, "logs")
+        set_log_path(log_dir)
+        
+        # Rotate setup.log on startup if it's > 0 bytes
+        log_path = os.path.join(log_dir, "setup.log")
+        old_log_path = os.path.join(log_dir, "setup.old.log")
+        if os.path.exists(log_path) and os.path.getsize(log_path) > 0:
+            try:
+                if os.path.exists(old_log_path):
+                    os.remove(old_log_path)
+                os.rename(log_path, old_log_path)
+            except Exception:
+                pass
+        
+        # Create a fresh empty log file for this session
+        try:
+            os.makedirs(log_dir, exist_ok=True)
+            with open(log_path, "w", encoding="utf-8") as f:
+                f.write("")
+        except Exception:
+            pass
         
         # Initialize Sidebar button states
         self.update_navigation_buttons()
@@ -216,7 +236,7 @@ class DockerSetupGUI(ctk.CTk):
         self.btn_env.configure(state="normal" if self.max_completed_step >= 3 else "disabled")
         self.btn_deploy.configure(state="normal" if self.max_completed_step >= 4 else "disabled")
         if hasattr(self, "btn_logs"):
-            self.btn_logs.configure(state="normal" if self.max_completed_step >= 5 else "disabled")
+            self.btn_logs.configure(state="normal")
 
     # Generic window centering helper
     def center_over_parent(self, dialog, width: int, height: int):
@@ -300,10 +320,6 @@ class DockerSetupGUI(ctk.CTk):
         self.deploy_frame.grid(row=0, column=0, sticky="nsew")
 
     def show_logs_frame(self, from_next=False):
-        if from_next:
-            self.max_completed_step = max(self.max_completed_step, 5)
-        if self.max_completed_step < 5:
-            return
         self.update_navigation_buttons()
         self.select_sidebar_button(self.btn_logs)
         self.hide_all_frames()
@@ -450,14 +466,24 @@ class DockerSetupGUI(ctk.CTk):
         if not confirm:
             return
             
-        # Run reset in background showing the log console
-        self.show_deploy_frame(from_next=True)
-        self.log_text.delete("1.0", tk.END)
-        self.btn_start_deploy.configure(state="disabled")
+        # Display a centered, transient modal progress window
+        dialog = ctk.CTkToplevel(self)
+        dialog.title("Resetting System")
+        dialog.resizable(False, False)
+        
+        self.center_over_parent(dialog, 400, 150)
+        
+        lbl_msg = ctk.CTkLabel(dialog, text="Wiping all configurations and volumes...", font=ctk.CTkFont(size=13))
+        lbl_msg.pack(pady=(20, 10))
+        
+        prog_bar = ctk.CTkProgressBar(dialog, width=300)
+        prog_bar.pack(pady=10)
+        prog_bar.configure(mode="indefinite")
+        prog_bar.start()
         
         def reset_worker():
             try:
-                self.log_message("[INFO] Commencing full system reset...")
+                write_log("[INFO] Commencing full system reset...")
                 stacks_dir = os.path.join(d_dir, "stacks")
                 if os.path.exists(stacks_dir):
                     for stack in os.listdir(stacks_dir):
@@ -465,10 +491,10 @@ class DockerSetupGUI(ctk.CTk):
                         if os.path.isdir(full_path):
                             compose_file = os.path.join(full_path, "docker-compose.yml")
                             if os.path.exists(compose_file):
-                                self.log_message(f"[INFO] Tearing down stack: {stack}...")
+                                write_log(f"[INFO] Tearing down stack: {stack}...")
                                 subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=full_path, capture_output=True, env=get_clean_env())
                                 
-                self.log_message("[INFO] Removing stack and configuration directories...")
+                write_log("[INFO] Removing stack and configuration directories...")
                 shutil.rmtree(stacks_dir, ignore_errors=True)
                 shutil.rmtree(os.path.join(d_dir, "appdata"), ignore_errors=True)
                 
@@ -478,7 +504,7 @@ class DockerSetupGUI(ctk.CTk):
                     if os.path.exists(file_p):
                         try:
                             shutil.copy2(file_p, file_p + ".bak")
-                            self.log_message(f"[INFO] Created backup: {file}.bak")
+                            write_log(f"[INFO] Created backup: {file}.bak")
                             os.remove(file_p)
                         except Exception:
                             pass
@@ -487,15 +513,18 @@ class DockerSetupGUI(ctk.CTk):
                 import src.utils.state as state
                 state._metadata_cache = {}
                 
-                self.log_message("[SUCCESS] Reset complete. All containers and settings have been wiped!")
-                messagebox.showinfo("Reset Complete", "All configurations, volumes, and containers have been wiped cleanly.")
-                
-                # Relaunch Welcome
-                self.after(0, lambda: self.show_welcome_frame())
+                write_log("[SUCCESS] Reset complete. All containers and settings have been wiped!")
+                self.after(0, lambda: [
+                    dialog.destroy(),
+                    messagebox.showinfo("Reset Complete", "All configurations, volumes, and containers have been wiped cleanly."),
+                    self.show_welcome_frame()
+                ])
             except Exception as e:
-                self.log_message(f"[ERROR] Reset failed: {str(e)}")
-            finally:
-                self.after(0, lambda: self.btn_start_deploy.configure(state="normal"))
+                write_log(f"[ERROR] Reset failed: {str(e)}")
+                self.after(0, lambda: [
+                    dialog.destroy(),
+                    messagebox.showerror("Reset Failed", f"An error occurred during reset: {str(e)}")
+                ])
                 
         t = threading.Thread(target=reset_worker)
         t.daemon = True
@@ -957,8 +986,17 @@ class DockerSetupGUI(ctk.CTk):
             
             def open_plex_claim():
                 import webbrowser
+                url = "https://plex.tv/claim"
                 try:
-                    webbrowser.open("https://plex.tv/claim")
+                    if webbrowser.open(url):
+                        return
+                except Exception:
+                    pass
+                try:
+                    if sys.platform.startswith("linux"):
+                        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 except Exception:
                     pass
                     
@@ -1108,7 +1146,7 @@ class DockerSetupGUI(ctk.CTk):
         
         # Verbose Toggle
         self.var_verbose = tk.BooleanVar(value=False)
-        self.chk_verbose = ctk.CTkCheckBox(progress_control_frame, text="Enable Verbose (Debug) Logging", variable=self.var_verbose)
+        self.chk_verbose = ctk.CTkCheckBox(progress_control_frame, text="Enable Verbose (Debug) Logging", variable=self.var_verbose, command=self.refresh_deploy_logs)
         self.chk_verbose.grid(row=2, column=0, sticky="w", pady=(0, 5))
         
         # Deployment Button
@@ -1466,6 +1504,33 @@ class DockerSetupGUI(ctk.CTk):
         btn_save = ctk.CTkButton(scroll, text="Save & Sync Tokens", command=save_widget_keys)
         btn_save.grid(row=row_idx, column=0, columnspan=2, padx=10, pady=15)
 
+    def refresh_deploy_logs(self):
+        if not hasattr(self, "log_text"):
+            return
+        from src.utils.logger import get_log_path
+        log_path = get_log_path()
+        if not os.path.exists(log_path):
+            self.log_text.delete("1.0", tk.END)
+            return
+            
+        show_verbose = self.var_verbose.get()
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+        except Exception as e:
+            lines = [f"[ERROR] Failed to read log file: {str(e)}\n"]
+            
+        filtered_lines = []
+        for line in lines:
+            if not show_verbose:
+                if "[DEBUG]" in line or "[TRACE]" in line or ">>" in line:
+                    continue
+            filtered_lines.append(line.rstrip())
+            
+        self.log_text.delete("1.0", tk.END)
+        self.log_text.insert(tk.END, "\n".join(filtered_lines) + "\n")
+        self.log_text.see(tk.END)
+
     def build_guide_tab(self, tab):
         scroll = ctk.CTkScrollableFrame(tab)
         scroll.pack(fill="both", expand=True, padx=5, pady=5)
@@ -1485,6 +1550,60 @@ class DockerSetupGUI(ctk.CTk):
         
         lbl_guide = ctk.CTkLabel(scroll, text=guide_text, justify="left", wraplength=550, font=ctk.CTkFont(size=12))
         lbl_guide.pack(padx=10, pady=10)
+
+        metadata = get_metadata()
+        selected = metadata.get("selected_services", [])
+        if "plextraktsync" in selected:
+            pts_frame = ctk.CTkFrame(scroll, fg_color=["#F0F0F0", "#1E1E1E"], corner_radius=8)
+            pts_frame.pack(fill="x", padx=10, pady=10)
+            
+            pts_title = ctk.CTkLabel(pts_frame, text="PlexTraktSync OAuth Authorization Guide", font=ctk.CTkFont(size=14, weight="bold"))
+            pts_title.pack(anchor="w", padx=15, pady=(10, 5))
+            
+            pts_desc = (
+                "PlexTraktSync requires initial authorization to access your Plex and Trakt.tv accounts.\n"
+                "Click the button below to spawn an interactive terminal and complete the configuration."
+            )
+            pts_lbl = ctk.CTkLabel(pts_frame, text=pts_desc, justify="left", font=ctk.CTkFont(size=12))
+            pts_lbl.pack(anchor="w", padx=15, pady=(0, 10))
+            
+            def authorize_pts():
+                deploy_dir = get_deploy_dir()
+                media_server_dir = os.path.normpath(os.path.join(deploy_dir, "stacks", "media-server"))
+                if not os.path.exists(media_server_dir):
+                    from tkinter import messagebox
+                    messagebox.showerror("Error", f"Media server stack directory not found at {media_server_dir}")
+                    return
+                
+                try:
+                    if sys.platform == "win32":
+                        cmd = f'cmd.exe /k "cd /d {media_server_dir} && docker compose run --rm plextraktsync"'
+                        subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+                    elif sys.platform == "darwin":
+                        cmd = f'osascript -e \'tell application "Terminal" to do script "cd {media_server_dir} && docker compose run --rm plextraktsync"\''
+                        subprocess.Popen(cmd, shell=True)
+                    else:
+                        terminals = ["x-terminal-emulator", "gnome-terminal", "konsole", "xfce4-terminal", "alacritty", "kitty", "xterm"]
+                        spawned = False
+                        for term in terminals:
+                            if shutil.which(term):
+                                if term == "gnome-terminal":
+                                    subprocess.Popen(["gnome-terminal", "--working-directory", media_server_dir, "--", "docker", "compose", "run", "--rm", "plextraktsync"])
+                                elif term == "xfce4-terminal":
+                                    subprocess.Popen(["xfce4-terminal", "--working-directory", media_server_dir, "-e", "docker compose run --rm plextraktsync"])
+                                else:
+                                    subprocess.Popen([term, "-e", f"sh -c 'cd {media_server_dir} && docker compose run --rm plextraktsync'"])
+                                spawned = True
+                                break
+                        if not spawned:
+                            from tkinter import messagebox
+                            messagebox.showerror("Error", "Could not find a supported terminal emulator (gnome-terminal, xterm, etc.) to run the auth command.")
+                except Exception as e:
+                    from tkinter import messagebox
+                    messagebox.showerror("Error", f"Failed to spawn terminal: {str(e)}")
+            
+            btn_auth = ctk.CTkButton(pts_frame, text="Authorize PlexTraktSync", command=authorize_pts)
+            btn_auth.pack(anchor="w", padx=15, pady=(0, 15))
 
     def create_logs_view(self) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")

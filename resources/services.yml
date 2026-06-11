@@ -6,7 +6,7 @@
 STACK_GROUPS:
   - core | npm plus (+goaccess), mariadb (+adminer), postgresql (+cloudbeaver), mongodb (+mongo-express), authelia, tailscale, cloudflare-ddns, crowdsec, vaultwarden, dockge, portainer, kasm, adminer, cloudbeaver, mongo-express
   - media-pvr | sonarr, radarr, lidarr, readarr, mylar, bazarr, prowlarr, recyclarr, flaresolverr
-  - media-server | plex, jellyfin, seerr, tautulli, navidrome
+  - media-server | plex, jellyfin, seerr, tautulli, navidrome, plextraktsync
   - downloaders | qbittorrent, qbittorrent-vpn, sabnzbd, slskd
   - maintenance | watchtower, docker-prune, uptime, homepage, scrutiny
   - personal-cloud | immich, paperless, syncthing, cloudcmd, kopia, filebrowser, audiobookshelf
@@ -66,6 +66,7 @@ TOOLS:
   - audiobookshelf | 13378 | books | Self-hosted audiobook and podcast server with a beautiful web UI and full-featured mobile apps.
   - paperless | 8010 | docs | Document management system that handles OCR and indexing to transform physical documents into a searchable online archive.
   - scrutiny | 8086 | status | Hard drive S.M.A.R.T. monitoring dashboard that tracks disk health and alerts you to potential failures before they happen.
+  - plextraktsync | 0 | none | Dynamic two-way synchronization tool between your Plex media library and Trakt.tv profiles.
 
 GAMES:
   - tmodloader | 7777 | terraria | Dedicated server for modded Terraria, providing a persistent world for multiplayer sessions with friends.
@@ -81,7 +82,7 @@ RECOMMENDATIONS:
   - mylar | prowlarr, recyclarr, qbittorrent, sabnzbd
   - qbittorrent | prowlarr, sonarr, radarr
   - sabnzbd | prowlarr, sonarr, radarr
-  - plex | tautulli, seerr, watchtower
+  - plex | tautulli, seerr, watchtower, plextraktsync
   - jellyfin | seerr, watchtower
   - npm plus (+goaccess) | cloudflare-ddns, authelia, crowdsec
   - mariadb (+adminer) | authelia

@@ -88,6 +88,22 @@ def setup_directories() -> bool:
                 except Exception as e:
                     write_log(f"Warning: Could not pre-seed config.xml for {clean_app}. Error: {str(e)}", level="WARN")
 
+        # Pre-seed config.yml with username filter for PlexTraktSync
+        if clean_app == "plextraktsync":
+            parent_dir = os.path.dirname(path)
+            config_file = os.path.join(parent_dir, "config.yml")
+            if not os.path.exists(config_file):
+                try:
+                    default_config = (
+                        "watch:\n"
+                        "  username_filter: true\n"
+                    )
+                    with open(config_file, "w", encoding="utf-8") as f:
+                        f.write(default_config)
+                    write_log("Pre-seeded config.yml with username_filter for plextraktsync", level="DEBUG")
+                except Exception as e:
+                    write_log(f"Warning: Could not pre-seed config.yml for plextraktsync. Error: {str(e)}", level="WARN")
+
     # Create stacks directory for Dockge
     stacks_dir = resolve_path_slash(os.path.join(docker_dir, "stacks"))
     if not os.path.exists(stacks_dir):

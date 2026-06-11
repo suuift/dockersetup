@@ -12,7 +12,13 @@ All notable changes to this project will be documented in this file.
 - **[GUI]** Implemented dynamic screen scaling auto-detection on Linux using native Tcl DPI metrics, and added a manual UI scaling override dropdown in the sidebar.
 - **[GUI]** Restructured popup dialogues to use a generic, z-indexed `center_over_parent` centering handler, and deferred `grab_set()` invocation until visibility mapping occurs to prevent TclError crashes on Linux/X11 window managers.
 - **[GUI]** Restricted sidebar menu navigation to completed wizard steps, locking ahead-of-time step skipping while allowing backward traversal.
+- **[GUI]** Decoupled the "View Logs" tab from locked navigation steps, allowing users to view logs at any stage of deployment.
+- **[GUI]** Fixed Plex Claim token "Get Token" button on Linux systems by providing a dynamic `xdg-open` fallback helper.
+- **[GUI]** Overhauled system reset process to execute within a centered, transient modal progress window while keeping the user on the welcome screen.
+- **[GUI]** Implemented dynamic console logging refresh on the Deploy tab, filtering/unfiltering logs directly from `setup.log` when verbose toggle changes.
+- **[GUI]** Added setup log rotation on startup to rename `setup.log` to `setup.old.log` only if it contains data.
 - **[Main]** Renamed `DRIVEPOOL` to `DATADRIVE` completely across environment variables, compose templates, and tests.
+- **[Main]** Integrated PlexTraktSync service including custom directory config.yml pre-seeding and a guided terminal-spawning OAuth assistant.
 
 ## [1.5.41] - 2026-06-11
 ### Fixed

@@ -840,3 +840,12 @@ enshrouded: |
       - PUID=4711
       - PGID=4711
 
+plextraktsync: |
+  plextraktsync:
+    image: ghcr.io/taxel/plextraktsync:latest
+    container_name: plextraktsync
+    <<: *common-keys-apps
+    command: watch
+    volumes:
+      - $DOCKERDIR/appdata/plextraktsync:/app/config
+
