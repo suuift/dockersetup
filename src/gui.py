@@ -80,6 +80,7 @@ class DockerSetupGUI(ctk.CTk):
         base_scale = self.get_linux_dpi_scale() if sys.platform.startswith("linux") else 1.0
         new_scale = max(base_scale, min(base_scale * width_ratio, 1.8))
         ctk.set_widget_scaling(new_scale)
+        self.scaling_optionmenu.set(f"{int(new_scale * 100)}%")
 
     def __init__(self):
         super().__init__()
@@ -661,31 +662,14 @@ class DockerSetupGUI(ctk.CTk):
         self.build_services_checkboxes()
 
     def build_services_checkboxes(self):
-        # Clear container
-        for widget in self.services_container.winfo_children():
-            try:
-                widget.destroy()
-            except Exception:
-                pass
-                
-        # Resolve categories
-        categories = {}
-        for entry in self.registry:
-            cat = entry.type.upper() if entry.type else "GENERAL"
-            if cat == "NONE":
-                cat = "UTILITIES"
-            if cat not in categories:
-                categories[cat] = []
-            categories[cat].append(entry)
-            
-        metadata = get_metadata()
-        active_selections = metadata.get("selected_services", [])
-        
         # Resolve minimal keys
         minimal_keys = []
         if hasattr(self, "master_registry") and "MINIMAL" in self.master_registry:
             minimal_keys = [svc.key for svc in self.master_registry["MINIMAL"]]
             
+        metadata = get_metadata()
+        active_selections = metadata.get("selected_services", [])
+        
         # Determine initial switch state if not already set manually
         if active_selections:
             is_adv = not all(k in minimal_keys for k in active_selections)
@@ -700,15 +684,16 @@ class DockerSetupGUI(ctk.CTk):
                 is_selected = entry.key in active_selections
                 self.chk_vars[entry.key] = tk.BooleanVar(value=is_selected)
 
-        # 1. MINIMAL MODE
-        if not self.var_advanced_mode.get():
-            self.services_container.grid_columnconfigure(0, weight=1)
-            self.services_container.grid_columnconfigure(1, weight=0)
+        # Build Minimal Frame Layout once
+        if not hasattr(self, "minimal_frame_layout"):
+            self.minimal_frame_layout = ctk.CTkFrame(self.services_container, fg_color="transparent")
+            self.minimal_frame_layout.grid_columnconfigure(0, weight=1)
+            self.minimal_frame_layout.grid_rowconfigure(0, weight=1)
             
-            lbl_info = ctk.CTkLabel(self.services_container, text="Core Minimal Services (Enabled)", font=ctk.CTkFont(size=14, weight="bold"))
+            lbl_info = ctk.CTkLabel(self.minimal_frame_layout, text="Core Minimal Services (Enabled)", font=ctk.CTkFont(size=14, weight="bold"))
             lbl_info.pack(anchor="w", pady=(5, 10))
             
-            self.minimal_scroll = ctk.CTkScrollableFrame(self.services_container)
+            self.minimal_scroll = ctk.CTkScrollableFrame(self.minimal_frame_layout)
             self.minimal_scroll.pack(fill="both", expand=True)
             
             for entry in self.registry:
@@ -722,15 +707,16 @@ class DockerSetupGUI(ctk.CTk):
                     )
                     chk.pack(anchor="w", padx=20, pady=6)
                     self.chk_buttons[entry.key] = chk
-            self.on_checkbox_toggle()
-            
-        # 2. ADVANCED MODE (DUAL-PANE LAYOUT)
-        else:
-            self.services_container.grid_columnconfigure(0, weight=3)
-            self.services_container.grid_columnconfigure(1, weight=2)
+
+        # Build Advanced Frame Layout once
+        if not hasattr(self, "advanced_frame_layout"):
+            self.advanced_frame_layout = ctk.CTkFrame(self.services_container, fg_color="transparent")
+            self.advanced_frame_layout.grid_columnconfigure(0, weight=3)
+            self.advanced_frame_layout.grid_columnconfigure(1, weight=2)
+            self.advanced_frame_layout.grid_rowconfigure(0, weight=1)
             
             # Left Pane
-            left_frame = ctk.CTkFrame(self.services_container, fg_color="transparent")
+            left_frame = ctk.CTkFrame(self.advanced_frame_layout, fg_color="transparent")
             left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
             left_frame.grid_columnconfigure(0, weight=1)
             left_frame.grid_rowconfigure(1, weight=1)
@@ -743,7 +729,7 @@ class DockerSetupGUI(ctk.CTk):
             self.services_scroll.grid_columnconfigure(0, weight=1)
             
             # Right Pane
-            right_frame = ctk.CTkFrame(self.services_container, fg_color="transparent")
+            right_frame = ctk.CTkFrame(self.advanced_frame_layout, fg_color="transparent")
             right_frame.grid(row=0, column=1, sticky="nsew", padx=(10, 0))
             right_frame.grid_columnconfigure(0, weight=1)
             right_frame.grid_rowconfigure(1, weight=1)
@@ -754,7 +740,17 @@ class DockerSetupGUI(ctk.CTk):
             self.selected_scroll = ctk.CTkScrollableFrame(right_frame)
             self.selected_scroll.grid(row=1, column=0, sticky="nsew")
             
-            # Render left checkboxes in a single column to prevent horizontal truncation
+            # Resolve categories
+            categories = {}
+            for entry in self.registry:
+                cat = entry.type.upper() if entry.type else "GENERAL"
+                if cat == "NONE":
+                    cat = "UTILITIES"
+                if cat not in categories:
+                    categories[cat] = []
+                categories[cat].append(entry)
+
+            # Render left checkboxes in a single column
             current_row = 0
             for cat_name, entries in sorted(categories.items()):
                 lbl_cat = ctk.CTkLabel(self.services_scroll, text=cat_name, font=ctk.CTkFont(size=13, weight="bold"), text_color=["#1F6AA5", "#3B8ED0"])
@@ -771,7 +767,23 @@ class DockerSetupGUI(ctk.CTk):
                     chk.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
                     self.chk_buttons[entry.key] = chk
                     current_row += 1
-            self.on_checkbox_toggle()
+
+        # Toggle visibility instantly
+        if not self.var_advanced_mode.get():
+            self.advanced_frame_layout.grid_forget()
+            self.minimal_frame_layout.grid(row=0, column=0, sticky="nsew")
+            
+            # For minimal mode, force enable only minimal keys
+            for key in self.chk_vars:
+                if key in minimal_keys:
+                    self.chk_vars[key].set(True)
+                else:
+                    self.chk_vars[key].set(False)
+        else:
+            self.minimal_frame_layout.grid_forget()
+            self.advanced_frame_layout.grid(row=0, column=0, sticky="nsew")
+
+        self.on_checkbox_toggle()
 
     def uncheck_service(self, key: str):
         if key in self.chk_vars:
@@ -1012,18 +1024,19 @@ class DockerSetupGUI(ctk.CTk):
             entry_plex.grid(row=0, column=0, sticky="ew")
             
             def open_plex_claim():
-                import webbrowser
                 url = "https://plex.tv/claim"
                 try:
-                    if webbrowser.open(url):
+                    if sys.platform.startswith("linux"):
+                        subprocess.Popen(["xdg-open", url], env=get_clean_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                        return
+                    elif sys.platform == "darwin":
+                        subprocess.Popen(["open", url], env=get_clean_env(), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                         return
                 except Exception:
                     pass
                 try:
-                    if sys.platform.startswith("linux"):
-                        subprocess.Popen(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                    elif sys.platform == "darwin":
-                        subprocess.Popen(["open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    import webbrowser
+                    webbrowser.open(url)
                 except Exception:
                     pass
                     
