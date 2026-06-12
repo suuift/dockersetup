@@ -59,7 +59,7 @@ sonarr: |
       - $DATADRIVE/anime:/anime
       - $DATADRIVE/downloads:/downloads
     ports:
-      - 8989:8989
+      - ${SONARR_PORT:-8989}:8989
     environment:
       <<: *default-tz-puid-pgid
 
@@ -73,7 +73,7 @@ radarr: |
       - $DATADRIVE/movies:/movies
       - $DATADRIVE/downloads:/downloads
     ports:
-      - 7878:7878
+      - ${RADARR_PORT:-7878}:7878
     environment:
       <<: *default-tz-puid-pgid
 
@@ -87,7 +87,7 @@ lidarr: |
       - $DATADRIVE/music:/music
       - $DATADRIVE/downloads:/downloads
     ports:
-      - 8686:8686
+      - ${LIDARR_PORT:-8686}:8686
     environment:
       <<: *default-tz-puid-pgid
 
@@ -101,7 +101,7 @@ bazarr: |
       - $DATADRIVE/movies:/movies
       - $DATADRIVE/tv:/tv
     ports:
-      - 6767:6767
+      - ${BAZARR_PORT:-6767}:6767
     environment:
       <<: *default-tz-puid-pgid
 
@@ -113,7 +113,7 @@ prowlarr: |
     volumes:
       - $DOCKERDIR/appdata/prowlarr/config:/config
     ports:
-      - 9696:9696
+      - ${PROWLARR_PORT:-9696}:9696
     environment:
       <<: *default-tz-puid-pgid
 
@@ -126,7 +126,7 @@ flaresolverr: |
       - LOG_LEVEL=info
       - TZ=$TZ
     ports:
-      - 8191:8191
+      - ${FLARESOLVERR_PORT:-8191}:8191
 
 qbittorrent: |
   qbittorrent:
@@ -139,7 +139,7 @@ qbittorrent: |
       - $DOCKERDIR/appdata/qbit/config:/config
       - $DATADRIVE/downloads:/downloads
     ports:
-      - 8081:8081
+      - ${QBITTORRENT_PORT:-8081}:8081
       - 6881:6881
       - 6881:6881/udp
 

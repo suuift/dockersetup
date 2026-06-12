@@ -217,7 +217,11 @@ def auto_stitch_services() -> bool:
     for svc_entry in registry_list:
         svc = svc_entry.key
         try:
-            port = int(svc_entry.port)
+            env_port = os.getenv(f"{svc.replace('-', '_').replace(' (+goaccess)', '').upper()}_PORT")
+            if env_port and env_port.isdigit():
+                port = int(env_port)
+            else:
+                port = int(svc_entry.port)
         except ValueError:
             port = 0
 

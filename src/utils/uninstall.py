@@ -44,6 +44,22 @@ def main():
         default=False
     )
 
+    # Check Docker daemon availability
+    docker_online = False
+    try:
+        subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, env=get_clean_env(), timeout=4)
+        docker_online = True
+    except Exception:
+        docker_online = False
+
+    if not docker_online:
+        console.print("\n[bold red][!] WARNING: Docker daemon is not running.[/bold red]")
+        console.print("Containers and volumes cannot be stopped or removed automatically.", style="yellow")
+        cont = safe_confirm("Do you want to proceed with deleting the local configuration folders anyway?", default=False)
+        if not cont:
+            console.print("Uninstall aborted. Config directories preserved.", style="yellow")
+            sys.exit(0)
+
     # Backup env file for safety
     if os.path.exists(env_path):
         backup_env = env_path + ".bak"
@@ -90,8 +106,23 @@ def main():
 
     # 5. Directory cleanup
     if proceed_with_cleanup:
+        import stat
+        import sys
+        def force_delete_fallback(func, path, exc_info):
+            try:
+                os.chmod(path, stat.S_IWRITE)
+                func(path)
+            except Exception:
+                pass
+
+        rmtree_opts = {}
+        if sys.version_info >= (3, 12):
+            rmtree_opts["onexc"] = force_delete_fallback
+        else:
+            rmtree_opts["onerror"] = force_delete_fallback
+            
         try:
-            shutil.rmtree(stacks_dir, ignore_errors=True)
+            shutil.rmtree(stacks_dir, **rmtree_opts)
             console.print("[OK] Stack configuration files successfully removed.", style="green")
             
             # Clean metadata

@@ -501,6 +501,11 @@ def configure_environment() -> bool:
         "LAN_NETWORK": lan_net, "DB_PASS": db_pass, "MONGO_PASS": mongo_pass,
         "KOPIA_PASSWORD": kopia_pass, "CROWDSEC_ENABLED": crowdsec_enabled, "CROWDSEC_API_KEY": crowdsec_key
     }
+    
+    # Inject dynamically resolved alternative ports
+    resolved_ports = metadata.get("resolved_ports", {})
+    for svc, alt_port in resolved_ports.items():
+        vars_dict[f"{svc.upper()}_PORT"] = str(alt_port)
 
     env_file = resolve_path_slash(os.path.join(docker_dir, ".env"))
     if os.path.exists(env_file) and os.getenv("DS_HEADLESS") != "true":

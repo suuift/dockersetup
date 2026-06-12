@@ -83,10 +83,22 @@ def invoke_token_wizard(target_dir: str):
             for s in to_configure:
                 cfg = manual_services[s]
                 console.print(f"\n>> Configuring {cfg['Name']}", style="cyan")
-                console.print(f"1. Open: {cfg['Url']}", style="grey50")
-                console.print(f"2. {cfg['Hint']}", style="grey50")
                 
-                token = questionary.password(f"Paste the Token/Key here (leave blank to skip):").ask()
+                token = None
+                if s == "plex":
+                    auth_choice = safe_confirm("Would you like to automatically link your Plex account using Plex PIN flow?", default=True)
+                    if auth_choice:
+                        from src.utils.plex_oauth import request_plex_token
+                        token = request_plex_token()
+                    else:
+                        console.print(f"1. Open: {cfg['Url']}", style="grey50")
+                        console.print(f"2. {cfg['Hint']}", style="grey50")
+                        token = questionary.password(f"Paste the Token/Key here (leave blank to skip):").ask()
+                else:
+                    console.print(f"1. Open: {cfg['Url']}", style="grey50")
+                    console.print(f"2. {cfg['Hint']}", style="grey50")
+                    token = questionary.password(f"Paste the Token/Key here (leave blank to skip):").ask()
+                    
                 if token and token.strip():
                     set_env_var(cfg["Var"], token.strip(), file_path=env_path)
                     console.print(f"[OK] Saved {cfg['Var']} to .env", style="green")
@@ -248,8 +260,34 @@ def main():
                             confirm = safe_confirm("Are you sure you want to permanently wipe all containers and configurations?", default=False)
                             if confirm:
                                 # Stop containers and clean volumes first if stacks exist
+                                from src.utils.paths import get_clean_env
+                                
+                                # Verify Docker daemon is online
+                                docker_online = False
+                                try:
+                                    subprocess.run(
+                                        ["docker", "info"],
+                                        stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.DEVNULL,
+                                        check=True,
+                                        timeout=4,
+                                        env=get_clean_env()
+                                    )
+                                    docker_online = True
+                                except Exception:
+                                    docker_online = False
+
+                                proceed_cleanup = True
+                                if not docker_online:
+                                    console.print("\n[bold red][!] WARNING: Docker daemon is not running.[/bold red]")
+                                    console.print("Cannot automatically stop active container stacks or clean Docker volumes.")
+                                    proceed_cleanup = safe_confirm("Would you like to force delete the configuration folders anyway?", default=False)
+                                    if not proceed_cleanup:
+                                        console.print("Reset cancelled. Config directories preserved.", style="yellow")
+                                        continue
+
                                 stacks_dir = resolve_path_slash(os.path.join(d_dir, "stacks"))
-                                if os.path.exists(stacks_dir):
+                                if docker_online and os.path.exists(stacks_dir):
                                     for stack in os.listdir(stacks_dir):
                                         full_path = resolve_path_slash(os.path.join(stacks_dir, stack))
                                         if os.path.isdir(full_path):
@@ -257,14 +295,46 @@ def main():
                                             if os.path.exists(compose_file):
                                                 write_step(f"Removing containers & volumes for stack: {stack}")
                                                 try:
-                                                    subprocess.run(["docker", "compose", "down", "-v", "--remove-orphans"], cwd=full_path, capture_output=True)
+                                                    res_down = subprocess.run(
+                                                        ["docker", "compose", "down", "-v", "--remove-orphans"],
+                                                        cwd=full_path,
+                                                        capture_output=True,
+                                                        env=get_clean_env()
+                                                    )
+                                                    if res_down.returncode != 0:
+                                                        console.print(f"\n[bold red][!] Warning: docker compose down failed for '{stack}':[/bold red]")
+                                                        console.print(res_down.stderr.decode("utf-8", errors="ignore").strip())
+                                                        force_del = safe_confirm(f"Remove configuration directory for stack '{stack}' anyway?", default=False)
+                                                        if not force_del:
+                                                            proceed_cleanup = False
                                                 except Exception as e:
                                                     write_log(f"Failed to compose down stack {stack}: {str(e)}", level="WARN")
 
-                                # Remove directories
-                                write_step("Deleting configuration and stack directories")
-                                shutil.rmtree(stacks_dir, ignore_errors=True)
-                                shutil.rmtree(resolve_path_slash(os.path.join(d_dir, "appdata")), ignore_errors=True)
+                                if proceed_cleanup:
+                                    import stat
+                                    def force_delete_fallback(func, path, exc_info):
+                                        try:
+                                            os.chmod(path, stat.S_IWRITE)
+                                            func(path)
+                                        except Exception:
+                                            pass
+
+                                    rmtree_opts = {}
+                                    if sys.version_info >= (3, 12):
+                                        rmtree_opts["onexc"] = force_delete_fallback
+                                    else:
+                                        rmtree_opts["onerror"] = force_delete_fallback
+
+                                    # Remove directories
+                                    write_step("Deleting configuration and stack directories")
+                                    shutil.rmtree(stacks_dir, **rmtree_opts)
+                                    shutil.rmtree(resolve_path_slash(os.path.join(d_dir, "appdata")), **rmtree_opts)
+                                    
+                                    # Double check residual files
+                                    if os.path.exists(stacks_dir) or os.path.exists(os.path.join(d_dir, "appdata")):
+                                        console.print("[!] Notice: Some locked or root-owned files could not be removed automatically. Please check permissions.", style="yellow")
+                                else:
+                                    continue
                                 
                                 # Remove metadata and environment files
                                 for file in [".metadata.json", ".env"]:

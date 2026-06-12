@@ -12,10 +12,14 @@ def run_bazarr_strategy(selected, keys, registry_list, rest_invoker):
         b_headers = {"X-Api-Key": b_key}
         
         # Determine Bazarr port (default 6767)
-        bazarr_port = 6767
-        reg_b = next((e for e in registry_list if e.key == "bazarr"), None)
-        if reg_b and reg_b.port:
-            bazarr_port = int(reg_b.port)
+        env_port = os.getenv("BAZARR_PORT")
+        if env_port and env_port.isdigit():
+            bazarr_port = int(env_port)
+        else:
+            bazarr_port = 6767
+            reg_b = next((e for e in registry_list if e.key == "bazarr"), None)
+            if reg_b and reg_b.port:
+                bazarr_port = int(reg_b.port)
             
         bazarr_api_url = f"http://localhost:{bazarr_port}/api"
 

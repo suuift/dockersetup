@@ -103,7 +103,7 @@ enable = 1
             write_log("Skipping qBittorrent credentials injection for minimal installation.", level="DEBUG")
             results.append("qBittorrent configured with default credentials")
         else:
-            qbit_port = 8081
+            qbit_port = int(os.getenv("QBITTORRENT_PORT", "8081"))
             write_step("Injecting Authentication for qBittorrent...")
             
             # Try both the new management credentials and the default admin/adminadmin
@@ -150,7 +150,9 @@ enable = 1
         if app in selected and app in keys:
             reg_entry = next((e for e in registry_list if e.key == app), None)
             if reg_entry:
-                app_url = f"http://localhost:{reg_entry.port}/api/v3/downloadclient?apikey={keys[app]}"
+                env_port = os.getenv(f"{app.upper()}_PORT")
+                port = int(env_port) if (env_port and env_port.isdigit()) else int(reg_entry.port)
+                app_url = f"http://localhost:{port}/api/v3/downloadclient?apikey={keys[app]}"
                 
                 # SABnzbd Linking
                 if "sabnzbd" in selected and "sabnzbd" in keys:

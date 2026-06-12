@@ -1,6 +1,8 @@
 import os
 import re
 from src.utils.logger import write_log, write_step
+from src.utils.paths import get_resource_path
+from src.utils.yaml_parser import get_yaml_content
 
 def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, rest_invoker, tier="1"):
     """
@@ -8,7 +10,17 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
     """
     results = []
     # Apps that support the standard v3/v1 Servarr API for auth and linking
-    arr_apps = ["sonarr", "radarr", "lidarr", "readarr", "mylar", "prowlarr"]
+    arr_apps = []
+    try:
+        master_registry = get_yaml_content(get_resource_path("services.yml"))
+        if "ARR_APPS" in master_registry:
+            arr_apps = [app.name for app in master_registry["ARR_APPS"]]
+    except Exception as e:
+        write_log(f"Failed to load ARR_APPS from services.yml: {str(e)}", level="DEBUG")
+        
+    if not arr_apps:
+        arr_apps = ["sonarr", "radarr", "lidarr", "readarr", "mylar", "prowlarr"]
+
     
     # Check if centralized identity provider / SSO is enabled
     identity_providers = ["authelia", "authentik"]
@@ -20,9 +32,10 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
             reg_entry = next((e for e in registry_list if e.key == app), None)
             if reg_entry:
                 write_step(f"Injecting Authentication for {app}...")
-                # Sonarr/Radarr/Readarr use v3, Lidarr/Mylar/Prowlarr use v1
                 api_version = "v1" if app in ["prowlarr", "lidarr", "mylar"] else "v3"
-                api_url = f"http://localhost:{reg_entry.port}/api/{api_version}/config/host"
+                env_port = os.getenv(f"{app.upper()}_PORT")
+                port = int(env_port) if (env_port and env_port.isdigit()) else int(reg_entry.port)
+                api_url = f"http://localhost:{port}/api/{api_version}/config/host"
                 api_key = keys[app]
                 headers = {"X-Api-Key": api_key}
                 
@@ -40,7 +53,8 @@ def run_servarr_strategy(selected, keys, registry_list, http_user, http_pass, re
     # 2. Prowlarr Stitching (Linking Indexers to PVRs)
     if "prowlarr" in keys:
         p_key = keys["prowlarr"]
-        p_url = f"http://localhost:9696/api/v1/applications?apikey={p_key}"
+        prowlarr_port = os.getenv("PROWLARR_PORT", "9696")
+        p_url = f"http://localhost:{prowlarr_port}/api/v1/applications?apikey={p_key}"
         
         # PVRs to link to Prowlarr, with their Servarr sync category sets
         pvr_categories = {
