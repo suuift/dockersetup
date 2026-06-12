@@ -241,7 +241,7 @@ location @clean_auth_demanded {
 
         for group in master_registry["STACK_GROUPS"]:
             stack_name = group.name
-            stack_apps = [a for a in homepage_services if a["Stack"] == stack_name]
+            stack_apps = [a for a in homepage_services if a["Stack"] == stack_name and a["Name"] != "homepage"]
 
             if stack_apps:
                 friendly_group_name = make_friendly_name(stack_name)
@@ -249,8 +249,6 @@ location @clean_auth_demanded {
                 hp_output += f"- {friendly_group_name}:\n"
                 for app in stack_apps:
                     svc_key = app["Name"]
-                    if svc_key == "homepage":
-                        continue
                     
                     # Find registry entry
                     reg_entry = None
@@ -264,21 +262,31 @@ location @clean_auth_demanded {
                     if reg_entry:
                         if reg_entry.description and reg_entry.description != "none":
                             alias = reg_entry.description  # Fallback to key or alias
-                        # Wait, original script has: if ($regEntry.Alias)
-                        # In Python, ConfigurableApp properties mapping uses name/alias.
-                        # Let's map it safely.
                         port = reg_entry.port
 
+                    container_port = port
                     svc_template = templates.get(svc_key, "")
                     # Check for explicit PORT override
                     match_port = re.search(r"#\s*PORT:\s*(\d+)", svc_template)
                     if match_port:
                         port = match_port.group(1)
-                    elif port == "0":
-                        # Regex fallback check
-                        match_regex_port = re.search(r"-\s*(\d+):", svc_template)
-                        if match_regex_port:
-                            port = match_regex_port.group(1)
+                        container_port = port
+                    else:
+                        # Find the ports block
+                        match_ports = re.search(r"ports:\s*\n((?:\s*-\s*['\"]?\d+:\d+['\"]?\s*\n)+)", svc_template)
+                        if match_ports:
+                            ports_list = match_ports.group(1)
+                            # Parse the first port pair, e.g. 8083:80
+                            match_pair = re.search(r"-\s*['\"]?(\d+):(\d+)['\"]?", ports_list)
+                            if match_pair:
+                                port = match_pair.group(1)
+                                container_port = match_pair.group(2)
+                        elif port == "0":
+                            # Regex fallback check
+                            match_regex_port = re.search(r"-\s*(\d+):", svc_template)
+                            if match_regex_port:
+                                port = match_regex_port.group(1)
+                                container_port = port
 
                     clean_key = svc_key.split(" ")[0]
                     if not port or port == "0" or (reg_entry and reg_entry.type == "none"):
@@ -314,7 +322,7 @@ location @clean_auth_demanded {
 
                         hp_output += f"        href: {url}\n"
                         hp_output += f"        description: {description}\n"
-                        hp_output += f"        ping: http://{clean_key}:{port}\n"
+                        hp_output += f"        ping: http://{clean_key}:{container_port}\n"
 
                         # --- WIDGET LOGIC ---
                         w_key = clean_key.lower()
@@ -327,7 +335,7 @@ location @clean_auth_demanded {
                             w_type = supported_widgets[w_key]
                             hp_output += "        widget:\n"
                             hp_output += f"          type: {w_type}\n"
-                            hp_output += f"          url: http://{clean_key}:{port}\n"
+                            hp_output += f"          url: http://{clean_key}:{container_port}\n"
 
                             env_key_base = svc_key.upper().replace("-", "_").replace(" ", "_")
 
@@ -452,12 +460,12 @@ location @clean_auth_demanded {
         if not os.path.exists(bookmarks_file) or os.getenv("TEST_MODE") != "true":
             bookmarks_content = """- Developer:
     - github.com/suuift/dockersetup:
-        - abbr: GH
-          href: https://github.com/suuift/dockersetup
+        abbr: GH
+        href: https://github.com/suuift/dockersetup
 - Windows Debloat Scripts:
     - Github/ChrisTitusTech/winutil/:
-        - abbr: RE
-          href: https://github.com/ChrisTitusTech/winutil/
+        abbr: RE
+        href: https://github.com/ChrisTitusTech/winutil/
 """
             with open(bookmarks_file, "w", encoding="utf-8") as f:
                 f.write(bookmarks_content)

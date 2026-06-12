@@ -70,7 +70,7 @@ def wait_for_service(name: str, port: int, max_timeout_seconds: int = 180) -> bo
 
     while (time.time() - start_time) < max_timeout_seconds:
         # 1. TCP Check
-        if test_port("localhost", port):
+        if test_port("127.0.0.1", port):
             if not tcp_ready:
                 console.print("(TCP Ready) ", end="")
                 sys.stdout.flush()
@@ -80,7 +80,7 @@ def wait_for_service(name: str, port: int, max_timeout_seconds: int = 180) -> bo
             # 2. HTTP Check
             try:
                 # Use Smart Verify logic for wait_for_service
-                url = f"http://localhost:{port}"
+                url = f"http://127.0.0.1:{port}"
                 verify = True
                 if os.getenv("DS_ALLOW_INSECURE_SSL") == "true" or is_private_address(url):
                     verify = False
