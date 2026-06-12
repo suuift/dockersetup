@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.49] - 2026-06-12
+### Added
+- **[GUI]** Added a real-time search bar to filter available services dynamically in both Minimal and Advanced checklist views.
+- **[GUI]** Embedded clickable `🌐` link icons next to each advanced service checkbox linking directly to their official documentation/repositories.
+
 ## [1.5.48] - 2026-06-11
 ### Fixed
 - **[GUI]** Fixed Windows console window auto-hiding logic at startup by verifying the console owner PID matches either the child Python process or the parent PyInstaller bootloader process.

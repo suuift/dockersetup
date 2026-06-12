@@ -1,5 +1,6 @@
 import os
 import sys
+import webbrowser
 
 # Prevent darkdetect from executing blocking subprocess calls on Linux
 if sys.platform.startswith("linux"):
@@ -630,7 +631,7 @@ class DockerSetupGUI(ctk.CTk):
     def create_services_view(self) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
         frame.grid_columnconfigure(0, weight=1)
-        frame.grid_rowconfigure(3, weight=1)
+        frame.grid_rowconfigure(4, weight=1)
         
         lbl_title = ctk.CTkLabel(frame, text="Select Stack Services", font=ctk.CTkFont(size=24, weight="bold"))
         lbl_title.grid(row=0, column=0, pady=(10, 5), sticky="w")
@@ -649,19 +650,31 @@ class DockerSetupGUI(ctk.CTk):
         )
         self.switch_advanced.grid(row=2, column=0, pady=(5, 5), sticky="w")
         
+        # Search Bar for available services
+        search_frame = ctk.CTkFrame(frame, fg_color="transparent")
+        search_frame.grid(row=3, column=0, sticky="ew", pady=(5, 5))
+        search_frame.grid_columnconfigure(0, weight=1)
+        
+        self.search_entry = ctk.CTkEntry(search_frame, placeholder_text="🔍 Search available services...", height=30)
+        self.search_entry.grid(row=0, column=0, sticky="ew")
+        self.search_entry.bind("<KeyRelease>", self.filter_services_checklist)
+        
         # Container frame for either Minimal or Advanced layouts
         self.services_container = ctk.CTkFrame(frame, fg_color="transparent")
-        self.services_container.grid(row=3, column=0, sticky="nsew", pady=10)
+        self.services_container.grid(row=4, column=0, sticky="nsew", pady=10)
         self.services_container.grid_columnconfigure(0, weight=1)
         self.services_container.grid_rowconfigure(0, weight=1)
         
         self.chk_vars = {}
         self.chk_buttons = {}
+        self.grid_infos = {}
+        self.cat_headers = {}
+        self.cat_to_services = {}
         self.build_services_checkboxes()
         
         # Navigation
         nav_buttons = ctk.CTkFrame(frame, fg_color="transparent")
-        nav_buttons.grid(row=4, column=0, sticky="ew", pady=(10, 0))
+        nav_buttons.grid(row=5, column=0, sticky="ew", pady=(10, 0))
         nav_buttons.grid_columnconfigure(0, weight=1)
         
         btn_back = ctk.CTkButton(nav_buttons, text="Back", width=100, command=self.show_welcome_frame)
@@ -686,6 +699,11 @@ class DockerSetupGUI(ctk.CTk):
                 else:
                     self.chk_vars[key].set(False)
                     
+        # Reset search bar text and refresh checklist filtering
+        if hasattr(self, "search_entry"):
+            self.search_entry.delete(0, tk.END)
+            self.filter_services_checklist()
+            
         self.build_services_checkboxes()
 
     def build_services_checkboxes(self):
@@ -777,22 +795,120 @@ class DockerSetupGUI(ctk.CTk):
                     categories[cat] = []
                 categories[cat].append(entry)
 
+            DOC_URLS = {
+                "sonarr": "https://github.com/linuxserver/docker-sonarr",
+                "radarr": "https://github.com/linuxserver/docker-radarr",
+                "lidarr": "https://github.com/linuxserver/docker-lidarr",
+                "bazarr": "https://github.com/linuxserver/docker-bazarr",
+                "prowlarr": "https://github.com/linuxserver/docker-prowlarr",
+                "flaresolverr": "https://github.com/FlareSolverr/FlareSolverr",
+                "qbittorrent": "https://github.com/linuxserver/docker-qbittorrent",
+                "sabnzbd": "https://github.com/linuxserver/docker-sabnzbd",
+                "qbittorrent-vpn": "https://github.com/binhex/arch-qbittorrentvpn",
+                "seerr": "https://github.com/sct/overseerr",
+                "recyclarr": "https://github.com/recyclarr/recyclarr",
+                "plex": "https://github.com/linuxserver/docker-plex",
+                "jellyfin": "https://github.com/linuxserver/docker-jellyfin",
+                "watchtower": "https://github.com/containrrr/watchtower",
+                "docker-prune": "https://hub.docker.com/r/softonic/docker-system-prune",
+                "homepage": "https://github.com/gethomepage/homepage",
+                "portainer": "https://github.com/portainer/portainer",
+                "dockge": "https://github.com/louislam/dockge",
+                "tautulli": "https://github.com/linuxserver/docker-tautulli",
+                "uptime": "https://github.com/louislam/uptime-kuma",
+                "tailscale": "https://github.com/tailscale/tailscale",
+                "cloudflare-ddns": "https://github.com/favonia/cloudflare-ddns",
+                "crowdsec": "https://github.com/crowdsecurity/crowdsec",
+                "cloudbeaver": "https://github.com/dbeaver/cloudbeaver",
+                "mongo-express": "https://github.com/mongo-express/mongo-express",
+                "kasm": "https://github.com/linuxserver/docker-kasm",
+                "cloudcmd": "https://github.com/coderaiser/cloudcmd",
+                "filebrowser": "https://github.com/filebrowser/filebrowser",
+                "syncthing": "https://github.com/linuxserver/docker-syncthing",
+                "vaultwarden": "https://github.com/dani-garcia/vaultwarden",
+                "navidrome": "https://github.com/navidrome/navidrome",
+                "slskd": "https://github.com/slskd/slskd",
+                "mylar": "https://github.com/linuxserver/docker-mylar3",
+                "readarr": "https://github.com/linuxserver/docker-readarr",
+                "hkserver": "https://github.com/hkmp-team/hkmp",
+                "kopia": "https://github.com/kopia/kopia",
+                "authelia": "https://github.com/authelia/authelia",
+                "immich": "https://github.com/immich-app/immich",
+                "audiobookshelf": "https://github.com/advplyr/audiobookshelf",
+                "paperless": "https://github.com/paperless-ngx/paperless-ngx",
+                "scrutiny": "https://github.com/AnalogJ/scrutiny",
+                "tmodloader": "https://github.com/jacobsmile/tmodloader-docker",
+                "satisfactory": "https://github.com/wolveix/satisfactory-server",
+                "valheim": "https://github.com/lloesche/valheim-server-docker",
+                "enshrouded": "https://github.com/mornedhels/enshrouded-docker",
+                "plextraktsync": "https://github.com/Taxel/PlexTraktSync",
+                "mariadb": "https://github.com/linuxserver/docker-mariadb",
+                "mariadb (+adminer)": "https://github.com/linuxserver/docker-mariadb",
+                "postgresql": "https://hub.docker.com/_/postgres",
+                "postgresql (+cloudbeaver)": "https://hub.docker.com/_/postgres",
+                "mongodb": "https://hub.docker.com/_/mongo",
+                "mongodb (+mongo-express)": "https://hub.docker.com/_/mongo",
+                "npm": "https://github.com/zoeyvid/nginx-proxy-manager-plus",
+                "npm plus (+goaccess)": "https://github.com/zoeyvid/nginx-proxy-manager-plus",
+            }
+
+            self.chk_frames = {}
+
             # Render left checkboxes in a single column
             current_row = 0
             for cat_name, entries in sorted(categories.items()):
                 lbl_cat = ctk.CTkLabel(self.services_scroll, text=cat_name, font=ctk.CTkFont(size=13, weight="bold"), text_color=["#1F6AA5", "#3B8ED0"])
                 lbl_cat.grid(row=current_row, column=0, pady=(12, 4), sticky="w")
+                
+                self.cat_headers[cat_name] = lbl_cat
+                self.grid_infos[cat_name] = {
+                    "row": current_row,
+                    "column": 0,
+                    "pady": (12, 4),
+                    "sticky": "w"
+                }
                 current_row += 1
                 
+                self.cat_to_services[cat_name] = []
                 for entry in entries:
+                    self.cat_to_services[cat_name].append(entry.key)
+                    
+                    item_frame = ctk.CTkFrame(self.services_scroll, fg_color="transparent")
+                    item_frame.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
+                    
+                    self.chk_frames[entry.key] = item_frame
+                    self.grid_infos[entry.key] = {
+                        "row": current_row,
+                        "column": 0,
+                        "padx": 5,
+                        "pady": 5,
+                        "sticky": "w"
+                    }
+                    
                     chk = ctk.CTkCheckBox(
-                        self.services_scroll, 
+                        item_frame, 
                         text=f"{entry.key} (port {entry.port})" if entry.port and entry.port != "0" else entry.key, 
                         variable=self.chk_vars[entry.key], 
                         command=self.on_checkbox_toggle
                     )
-                    chk.grid(row=current_row, column=0, padx=5, pady=5, sticky="w")
+                    chk.pack(side="left", anchor="w")
                     self.chk_buttons[entry.key] = chk
+                    
+                    doc_url = DOC_URLS.get(entry.key.lower())
+                    if doc_url:
+                        btn_link = ctk.CTkLabel(
+                            item_frame, 
+                            text="🌐", 
+                            font=ctk.CTkFont(size=13),
+                            text_color=["#1F6AA5", "#3B8ED0"],
+                            cursor="hand2"
+                        )
+                        btn_link.pack(side="left", padx=(8, 0))
+                        
+                        def make_open_url_cmd(url=doc_url):
+                            return lambda event: webbrowser.open(url)
+                        btn_link.bind("<Button-1>", make_open_url_cmd(doc_url))
+                    
                     current_row += 1
 
         # Toggle visibility instantly
@@ -810,7 +926,48 @@ class DockerSetupGUI(ctk.CTk):
             self.minimal_frame_layout.grid_forget()
             self.advanced_frame_layout.grid(row=0, column=0, sticky="nsew")
 
+        # Apply filtering in case the search bar already has text
+        self.filter_services_checklist()
         self.on_checkbox_toggle()
+
+    def filter_services_checklist(self, event=None):
+        if not hasattr(self, "cat_to_services") or not self.cat_to_services:
+            return
+        query = self.search_entry.get().strip().lower() if hasattr(self, "search_entry") else ""
+        
+        # If in Minimal Mode
+        if not self.var_advanced_mode.get():
+            minimal_keys = []
+            if hasattr(self, "master_registry") and "MINIMAL" in self.master_registry:
+                minimal_keys = [svc.key for svc in self.master_registry["MINIMAL"]]
+            for entry in self.registry:
+                if entry.key in minimal_keys:
+                    if entry.key in self.chk_buttons:
+                        chk = self.chk_buttons[entry.key]
+                        if not query or query in entry.key.lower():
+                            chk.pack(anchor="w", padx=20, pady=6)
+                        else:
+                            chk.pack_forget()
+        else:
+            # If in Advanced Mode
+            for cat_name, services in self.cat_to_services.items():
+                matching_services = [s for s in services if not query or query in s.lower()]
+                
+                # Show/hide category header
+                if matching_services:
+                    if cat_name in self.cat_headers:
+                        self.cat_headers[cat_name].grid(**self.grid_infos[cat_name])
+                else:
+                    if cat_name in self.cat_headers:
+                        self.cat_headers[cat_name].grid_forget()
+                
+                # Show/hide services
+                for s in services:
+                    if s in self.chk_frames:
+                        if not query or query in s.lower():
+                            self.chk_frames[s].grid(**self.grid_infos[s])
+                        else:
+                            self.chk_frames[s].grid_forget()
 
     def uncheck_service(self, key: str):
         if key in self.chk_vars:
