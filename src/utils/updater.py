@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.46"
+VERSION = "1.5.47"
 
 def parse_version(v_str: str):
     """

@@ -81,6 +81,8 @@ class DockerSetupGUI(ctk.CTk):
         new_scale = max(base_scale, min(base_scale * width_ratio, 1.8))
         ctk.set_widget_scaling(new_scale)
         self.scaling_optionmenu.set(f"{int(new_scale * 100)}%")
+        self.update_idletasks()
+        self.update()
 
     def __init__(self):
         super().__init__()
@@ -254,6 +256,9 @@ class DockerSetupGUI(ctk.CTk):
             scale_val = int(new_scaling.replace("%", "")) / 100
             ctk.set_widget_scaling(scale_val)
             ctk.set_window_scaling(scale_val)
+            self.last_scaled_width = self.winfo_width()
+            self.update_idletasks()
+            self.update()
         except Exception:
             pass
 
@@ -579,7 +584,7 @@ class DockerSetupGUI(ctk.CTk):
         compose_text = "NOT FOUND"
         compose_exists = False
         if docker_exists:
-            test_proc = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True)
+            test_proc = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True, env=get_clean_env())
             if test_proc.returncode == 0:
                 compose_exists = True
                 compose_text = "DOCKER COMPOSE V2 PLUG-IN INSTALLED"
@@ -587,6 +592,27 @@ class DockerSetupGUI(ctk.CTk):
         compose_color = "green" if compose_exists else "red"
         lbl_compose = ctk.CTkLabel(self.prereq_container, text=f"• Compose Engine Check: {compose_text}", text_color=compose_color, font=ctk.CTkFont(size=13, weight="bold"))
         lbl_compose.grid(row=2, column=0, padx=20, pady=8, sticky="w")
+
+        # 4. Docker Daemon Running Check
+        daemon_running = False
+        if docker_exists:
+            try:
+                subprocess.run(
+                    ["docker", "info"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=True,
+                    timeout=3,
+                    env=get_clean_env()
+                )
+                daemon_running = True
+            except Exception:
+                daemon_running = False
+
+        daemon_text = "RUNNING" if daemon_running else "NOT RUNNING"
+        daemon_color = "green" if daemon_running else "red"
+        lbl_daemon = ctk.CTkLabel(self.prereq_container, text=f"• Docker Daemon Check: {daemon_text}", text_color=daemon_color, font=ctk.CTkFont(size=13, weight="bold"))
+        lbl_daemon.grid(row=3, column=0, padx=20, pady=8, sticky="w")
 
     def browse_deployment_directory(self):
         selected_dir = filedialog.askdirectory(initialdir=self.entry_deploy_path.get())
@@ -807,47 +833,65 @@ class DockerSetupGUI(ctk.CTk):
                             
         if missing_recs:
             dialog = ctk.CTkToplevel(self)
-            dialog.title("Complete Your Stack Add-ons")
+            dialog.title("Recommended companion services")
             dialog.resizable(False, False)
-            self.center_over_parent(dialog, 500, 250)
             
-            lbl_title = ctk.CTkLabel(dialog, text="Complete Your Stack?", font=ctk.CTkFont(size=18, weight="bold"))
-            lbl_title.pack(pady=(20, 10))
+            # Height depends on the number of recommended services
+            dialog_height = min(400, 220 + 32 * len(missing_recs))
+            self.center_over_parent(dialog, 520, dialog_height)
             
-            msg = (
-                f"Based on your selections, we recommend adding the following companion services:\n\n"
-                f"{', '.join(missing_recs)}\n\n"
-                f"Would you like to automatically enable these recommended services?"
+            # Grab focus
+            dialog.transient(self)
+            dialog.grab_set()
+            
+            lbl_title = ctk.CTkLabel(dialog, text="Select Recommended Companion Services", font=ctk.CTkFont(size=16, weight="bold"))
+            lbl_title.pack(pady=(15, 5))
+            
+            lbl_desc = ctk.CTkLabel(
+                dialog, 
+                text="The following companion services are recommended based on your selections:", 
+                wraplength=480, 
+                font=ctk.CTkFont(size=12)
             )
-            lbl_msg = ctk.CTkLabel(dialog, text=msg, wraplength=450, justify="center", font=ctk.CTkFont(size=13))
-            lbl_msg.pack(pady=10)
+            lbl_desc.pack(pady=(0, 10))
             
+            # Checkbox frame (scrollable)
+            scroll_frame = ctk.CTkScrollableFrame(dialog, width=440, height=min(180, 32 * len(missing_recs)))
+            scroll_frame.pack(padx=20, pady=5, fill="both", expand=True)
+            
+            rec_vars = {}
+            for rec in missing_recs:
+                var = tk.BooleanVar(value=True) # default to checked
+                rec_vars[rec] = var
+                chk = ctk.CTkCheckBox(scroll_frame, text=rec, variable=var)
+                chk.pack(anchor="w", padx=20, pady=5)
+                
             btn_frame = ctk.CTkFrame(dialog, fg_color="transparent")
-            btn_frame.pack(pady=(20, 10))
+            btn_frame.pack(pady=(10, 15))
             
-            def on_yes():
-                for rec in missing_recs:
-                    if rec in self.chk_vars:
+            def on_confirm():
+                for rec, var in rec_vars.items():
+                    if var.get() and rec in self.chk_vars:
                         self.chk_vars[rec].set(True)
                 self.on_checkbox_toggle()
                 dialog.destroy()
                 self.show_env_frame(from_next=True)
                 
-            def on_no():
+            def on_skip():
                 dialog.destroy()
                 self.show_env_frame(from_next=True)
                 
-            def on_cancel():
+            def on_back():
                 dialog.destroy()
                 
-            btn_yes = ctk.CTkButton(btn_frame, text="Yes, Enable All", width=120, command=on_yes)
-            btn_yes.grid(row=0, column=0, padx=10)
+            btn_confirm = ctk.CTkButton(btn_frame, text="Add Selected", width=120, command=on_confirm)
+            btn_confirm.grid(row=0, column=0, padx=10)
             
-            btn_no = ctk.CTkButton(btn_frame, text="No, Skip", width=120, fg_color="gray", hover_color="dimgray", command=on_no)
-            btn_no.grid(row=0, column=1, padx=10)
+            btn_skip = ctk.CTkButton(btn_frame, text="Skip All", width=120, fg_color="gray", hover_color="dimgray", command=on_skip)
+            btn_skip.grid(row=0, column=1, padx=10)
             
-            btn_cancel = ctk.CTkButton(btn_frame, text="Go Back", width=120, fg_color="transparent", border_width=1, command=on_cancel)
-            btn_cancel.grid(row=0, column=2, padx=10)
+            btn_back = ctk.CTkButton(btn_frame, text="Go Back", width=120, fg_color="transparent", border_width=1, command=on_back)
+            btn_back.grid(row=0, column=2, padx=10)
             
         else:
             self.show_env_frame(from_next=True)
@@ -858,24 +902,39 @@ class DockerSetupGUI(ctk.CTk):
         
         # Dynamically build Selected Summary if we are in Advanced Mode and self.selected_scroll exists
         if self.var_advanced_mode.get() and hasattr(self, "selected_scroll") and self.selected_scroll.winfo_exists():
-            for widget in self.selected_scroll.winfo_children():
-                try:
-                    widget.destroy()
-                except Exception:
-                    pass
-            
+            if not hasattr(self, "selected_cards"):
+                self.selected_cards = {}
+                
+            # Remove cards for services that are no longer selected
+            for key in list(self.selected_cards.keys()):
+                if key not in self.selected_services:
+                    try:
+                        self.selected_cards[key].destroy()
+                    except Exception:
+                        pass
+                    del self.selected_cards[key]
+                    
+            # Add cards for new selections
             for key in sorted(self.selected_services):
-                card = ctk.CTkFrame(self.selected_scroll, fg_color=["#E5E5E5", "#2B2B2B"], height=32, corner_radius=6)
-                card.pack(fill="x", padx=5, pady=3)
-                
-                lbl = ctk.CTkLabel(card, text=key, font=ctk.CTkFont(size=12))
-                lbl.pack(side="left", padx=10)
-                
-                def make_delete_cmd(k=key):
-                    return lambda: self.uncheck_service(k)
-                
-                btn_del = ctk.CTkButton(card, text="✕", width=20, height=20, fg_color="transparent", text_color="red", hover_color=["#FFCCCC", "#552222"], command=make_delete_cmd(key))
-                btn_del.pack(side="right", padx=10)
+                if key not in self.selected_cards:
+                    card = ctk.CTkFrame(self.selected_scroll, fg_color=["#E5E5E5", "#2B2B2B"], height=32, corner_radius=6)
+                    
+                    lbl = ctk.CTkLabel(card, text=key, font=ctk.CTkFont(size=12))
+                    lbl.pack(side="left", padx=10)
+                    
+                    def make_delete_cmd(k=key):
+                        return lambda: self.uncheck_service(k)
+                    
+                    btn_del = ctk.CTkButton(card, text="✕", width=20, height=20, fg_color="transparent", text_color="red", hover_color=["#FFCCCC", "#552222"], command=make_delete_cmd(key))
+                    btn_del.pack(side="right", padx=10)
+                    
+                    self.selected_cards[key] = card
+            
+            # Repack in sorted order to preserve correct UI sequence
+            for key in sorted(self.selected_services):
+                if key in self.selected_cards:
+                    self.selected_cards[key].pack_forget()
+                    self.selected_cards[key].pack(fill="x", padx=5, pady=3)
 
     # ==========================================
     # 3. CREDENTIALS / ENV VARS FRAME CREATION
@@ -1251,6 +1310,24 @@ class DockerSetupGUI(ctk.CTk):
         self.after(100, self.read_log_queue)
 
     def trigger_deployment_pipeline(self):
+        # Verify Docker Daemon is running before starting the deployment pipeline
+        try:
+            subprocess.run(
+                ["docker", "info"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+                timeout=4,
+                env=get_clean_env()
+            )
+        except Exception:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "Docker Daemon Offline",
+                "Docker daemon is not running. Please start Docker Desktop/Daemon and try again."
+            )
+            return
+
         self.btn_start_deploy.configure(state="disabled", text="Deploying...")
         self.log_text.delete("1.0", tk.END)
         
@@ -1424,9 +1501,52 @@ class DockerSetupGUI(ctk.CTk):
         scroll.grid_columnconfigure((0, 1, 2), weight=1)
         
         from src.modules.auto_configure import test_port
+        import json
         metadata = get_metadata()
         selected = metadata.get("selected_services", [])
         
+        container_name_mapping = {
+            "npm plus (+goaccess)": "nginx-proxy-manager-plus",
+            "mariadb (+adminer)": "mariadb",
+            "postgresql (+cloudbeaver)": "postgresql",
+            "mongodb (+mongo-express)": "mongodb",
+            "qbittorrent": "qbit",
+            "qbittorrent-vpn": "qbit-vpn",
+        }
+        
+        def get_container_info(cname: str, default_p: int) -> tuple[bool, int]:
+            try:
+                proc = subprocess.run(
+                    ["docker", "inspect", cname],
+                    capture_output=True,
+                    text=True,
+                    env=get_clean_env()
+                )
+                if proc.returncode != 0:
+                    return False, default_p
+                data = json.loads(proc.stdout)
+                if not data or not isinstance(data, list):
+                    return False, default_p
+                state = data[0].get("State", {})
+                is_running = state.get("Running", False)
+                
+                host_port = default_p
+                network_settings = data[0].get("NetworkSettings", {})
+                ports = network_settings.get("Ports", {})
+                if ports:
+                    for container_port_proto, bindings in ports.items():
+                        if bindings:
+                            for binding in bindings:
+                                binding_port = binding.get("HostPort")
+                                if binding_port and binding_port.isdigit():
+                                    host_port = int(binding_port)
+                                    break
+                            if host_port != default_p:
+                                break
+                return is_running, host_port
+            except Exception:
+                return False, default_p
+                
         lbl_header_svc = ctk.CTkLabel(scroll, text="Service Name", font=ctk.CTkFont(size=12, weight="bold"))
         lbl_header_svc.grid(row=0, column=0, padx=10, pady=5, sticky="w")
         
@@ -1439,10 +1559,18 @@ class DockerSetupGUI(ctk.CTk):
         row_idx = 1
         for entry in self.registry:
             if entry.key in selected:
-                port = int(entry.port) if entry.port and entry.port.isdigit() else 0
+                default_port = int(entry.port) if entry.port and entry.port.isdigit() else 0
+                cname = container_name_mapping.get(entry.key, entry.key)
+                
+                is_running, port = get_container_info(cname, default_port)
+                
+                non_ui_services = {"flaresolverr", "hkserver", "mariadb", "postgresql", "mongodb", "redis", "db", "watchtower", "docker-prune", "crowdsec", "cloudflare-ddns", "plextraktsync", "recyclarr"}
+                
                 is_online = False
-                if port > 0:
-                    is_online = test_port("localhost", port)
+                if port > 0 and entry.key not in non_ui_services:
+                    is_online = test_port("127.0.0.1", port)
+                else:
+                    is_online = is_running
                     
                 status_text = "ONLINE" if is_online else "OFFLINE"
                 status_color = "green" if is_online else "red"
@@ -1453,8 +1581,11 @@ class DockerSetupGUI(ctk.CTk):
                 lbl_stat = ctk.CTkLabel(scroll, text=status_text, text_color=status_color, font=ctk.CTkFont(weight="bold"))
                 lbl_stat.grid(row=row_idx, column=1, padx=10, pady=5, sticky="w")
                 
-                non_ui_services = {"flaresolverr", "hkserver", "mariadb", "postgresql", "mongodb", "redis", "db"}
                 url = f"http://localhost:{port}" if port > 0 and entry.key not in non_ui_services else ""
+                if entry.key == "portainer" and url:
+                    url = f"https://localhost:{port}"
+                elif entry.key == "plex" and url:
+                    url = f"http://localhost:{port}/web"
                 
                 def open_link(u=url):
                     if u:
@@ -1572,33 +1703,193 @@ class DockerSetupGUI(ctk.CTk):
         self.log_text.see(tk.END)
 
     def build_guide_tab(self, tab):
+        for w in tab.winfo_children():
+            w.destroy()
+            
         scroll = ctk.CTkScrollableFrame(tab)
-        scroll.pack(fill="both", expand=True, padx=5, pady=5)
+        scroll.pack(fill="both", expand=True, padx=10, pady=10)
+        scroll.grid_columnconfigure(0, weight=1)
         
-        guide_text = (
-            "Congratulations! Your media server stack is fully operational.\n\n"
-            "GETTING STARTED GUIDE:\n"
-            "1. Access Homepage Dashboard: Open http://localhost:8080 in your browser to view your stack.\n"
-            "2. Access Docker Manager (Dockge): Open http://localhost:5001 to monitor container stacks and logs.\n"
-            "3. Prowlarr Indexers: Open Prowlarr to verify indexers. They automatically synchronize to Radarr and Sonarr.\n"
-            "4. SABnzbd / qBittorrent: Verify downloads folder configuration paths match the mounted root volumes (/downloads).\n\n"
-            "CLEANUP WARNING:\n"
-            "If you de-selected any services during this run, their container instances have been stopped and deleted cleanly. "
-            "However, to protect your data, their persistent files remain in the appdata/ and stacks/ directory. "
-            "You can manually delete them to reclaim disk space if you do not plan to use them again."
+        # Header banner
+        header_frame = ctk.CTkFrame(scroll, fg_color=["#EAEAEA", "#252525"], corner_radius=8)
+        header_frame.pack(fill="x", padx=10, pady=(5, 15))
+        
+        lbl_congrats = ctk.CTkLabel(
+            header_frame, 
+            text="🎉 Stack Deployed Successfully!", 
+            font=ctk.CTkFont(size=20, weight="bold"),
+            text_color=["#1F6AA5", "#3B8ED0"]
         )
+        lbl_congrats.pack(pady=(15, 5))
         
-        lbl_guide = ctk.CTkLabel(scroll, text=guide_text, justify="left", wraplength=550, font=ctk.CTkFont(size=12))
-        lbl_guide.pack(padx=10, pady=10)
-
+        lbl_sub = ctk.CTkLabel(
+            header_frame, 
+            text="Use the links below to access your services and finish setting them up.", 
+            font=ctk.CTkFont(size=13)
+        )
+        lbl_sub.pack(pady=(0, 15))
+        
         metadata = get_metadata()
         selected = metadata.get("selected_services", [])
-        if "plextraktsync" in selected:
-            pts_frame = ctk.CTkFrame(scroll, fg_color=["#F0F0F0", "#1E1E1E"], corner_radius=8)
-            pts_frame.pack(fill="x", padx=10, pady=10)
+        
+        container_name_mapping = {
+            "npm plus (+goaccess)": "nginx-proxy-manager-plus",
+            "mariadb (+adminer)": "mariadb",
+            "postgresql (+cloudbeaver)": "postgresql",
+            "mongodb (+mongo-express)": "mongodb",
+            "qbittorrent": "qbit",
+            "qbittorrent-vpn": "qbit-vpn",
+        }
+        
+        def get_container_info(cname: str, default_p: int) -> tuple[bool, int]:
+            import json
+            try:
+                proc = subprocess.run(
+                    ["docker", "inspect", cname],
+                    capture_output=True,
+                    text=True,
+                    env=get_clean_env()
+                )
+                if proc.returncode != 0:
+                    return False, default_p
+                data = json.loads(proc.stdout)
+                if not data or not isinstance(data, list):
+                    return False, default_p
+                state = data[0].get("State", {})
+                is_running = state.get("Running", False)
+                
+                host_port = default_p
+                network_settings = data[0].get("NetworkSettings", {})
+                ports = network_settings.get("Ports", {})
+                if ports:
+                    for container_port_proto, bindings in ports.items():
+                        if bindings:
+                            for binding in bindings:
+                                binding_port = binding.get("HostPort")
+                                if binding_port and binding_port.isdigit():
+                                    host_port = int(binding_port)
+                                    break
+                            if host_port != default_p:
+                                break
+                return is_running, host_port
+            except Exception:
+                return False, default_p
+                
+        non_ui_services = ["watchtower", "docker-prune", "crowdsec", "cloudflare-ddns", "plextraktsync", "recyclarr"]
+        
+        # Collect UI services
+        ui_services = []
+        for entry in self.registry:
+            if entry.key in selected and entry.key not in non_ui_services:
+                default_port = int(entry.port) if entry.port and entry.port.isdigit() else 0
+                if default_port > 0:
+                    cname = container_name_mapping.get(entry.key, entry.key)
+                    _, live_port = get_container_info(cname, default_port)
+                    ui_services.append((entry.key, live_port))
+                    
+        # 1. Primary Dashboards & Tools
+        dash_frame = ctk.CTkFrame(scroll, fg_color="transparent")
+        dash_frame.pack(fill="x", padx=10, pady=10)
+        dash_frame.grid_columnconfigure(0, weight=1)
+        dash_frame.grid_columnconfigure(1, weight=1)
+        
+        # Homepage Card
+        has_homepage = "homepage" in selected
+        hp_port = 3000
+        if has_homepage:
+            _, hp_port = get_container_info("homepage", 3000)
             
-            pts_title = ctk.CTkLabel(pts_frame, text="PlexTraktSync OAuth Authorization Guide", font=ctk.CTkFont(size=14, weight="bold"))
-            pts_title.pack(anchor="w", padx=15, pady=(10, 5))
+        hp_card = ctk.CTkFrame(dash_frame, fg_color=["#F2F2F2", "#2B2B2B"], border_width=1, border_color=["#D0D0D0", "#404040"], corner_radius=8)
+        hp_card.grid(row=0, column=0, padx=(0, 10), pady=10, sticky="nsew")
+        
+        hp_title = ctk.CTkLabel(hp_card, text="🏠 Homepage Dashboard", font=ctk.CTkFont(size=15, weight="bold"))
+        hp_title.pack(anchor="w", padx=15, pady=(15, 5))
+        
+        hp_desc = ctk.CTkLabel(
+            hp_card, 
+            text="Access your customizable landing page showing real-time status of all services.",
+            justify="left", 
+            wraplength=220,
+            font=ctk.CTkFont(size=12)
+        )
+        hp_desc.pack(anchor="w", padx=15, pady=5)
+        
+        hp_url = f"http://localhost:{hp_port}"
+        def open_hp():
+            import webbrowser
+            webbrowser.open(hp_url)
+            
+        btn_hp = ctk.CTkButton(hp_card, text=f"Open Dashboard (Port {hp_port})", command=open_hp, state="normal" if has_homepage else "disabled")
+        btn_hp.pack(anchor="w", padx=15, pady=(15, 15))
+        
+        # Dockge Card
+        has_dockge = "dockge" in selected
+        dg_port = 5001
+        if has_dockge:
+            _, dg_port = get_container_info("dockge", 5001)
+            
+        dg_card = ctk.CTkFrame(dash_frame, fg_color=["#F2F2F2", "#2B2B2B"], border_width=1, border_color=["#D0D0D0", "#404040"], corner_radius=8)
+        dg_card.grid(row=0, column=1, padx=(10, 0), pady=10, sticky="nsew")
+        
+        dg_title = ctk.CTkLabel(dg_card, text="🐋 Dockge Stack Manager", font=ctk.CTkFont(size=15, weight="bold"))
+        dg_title.pack(anchor="w", padx=15, pady=(15, 5))
+        
+        dg_desc = ctk.CTkLabel(
+            dg_card, 
+            text="Manage Docker Compose stacks, edit configurations, and monitor container logs.",
+            justify="left", 
+            wraplength=220,
+            font=ctk.CTkFont(size=12)
+        )
+        dg_desc.pack(anchor="w", padx=15, pady=5)
+        
+        dg_url = f"http://localhost:{dg_port}"
+        def open_dg():
+            import webbrowser
+            webbrowser.open(dg_url)
+            
+        btn_dg = ctk.CTkButton(dg_card, text=f"Open Dockge (Port {dg_port})", command=open_dg, state="normal" if has_dockge else "disabled")
+        btn_dg.pack(anchor="w", padx=15, pady=(15, 15))
+        
+        # 2. Companion Services
+        ui_services_to_show = [s for s in ui_services if s[0] not in ["homepage", "dockge"]]
+        if ui_services_to_show:
+            comp_lbl = ctk.CTkLabel(scroll, text="Companion Web Interfaces", font=ctk.CTkFont(size=15, weight="bold"))
+            comp_lbl.pack(anchor="w", padx=10, pady=(15, 5))
+            
+            comp_frame = ctk.CTkFrame(scroll, fg_color=["#F8F8F8", "#202020"], corner_radius=8)
+            comp_frame.pack(fill="x", padx=10, pady=5)
+            
+            comp_frame.grid_columnconfigure((0, 1, 2), weight=1)
+            
+            for index, (svc_key, svc_port) in enumerate(ui_services_to_show):
+                r = index // 3
+                c = index % 3
+                
+                svc_card = ctk.CTkFrame(comp_frame, fg_color=["#EEEEEE", "#2A2A2A"], corner_radius=6)
+                svc_card.grid(row=r, column=c, padx=8, pady=8, sticky="nsew")
+                
+                lbl_svc = ctk.CTkLabel(svc_card, text=svc_key, font=ctk.CTkFont(size=13, weight="bold"))
+                lbl_svc.pack(pady=(10, 5))
+                
+                url = f"https://localhost:{svc_port}" if svc_key == "portainer" else f"http://localhost:{svc_port}"
+                if svc_key == "plex":
+                    url = f"http://localhost:{svc_port}/web"
+                    
+                def make_open_url(u=url):
+                    import webbrowser
+                    return lambda: webbrowser.open(u)
+                    
+                btn_svc = ctk.CTkButton(svc_card, text=f"Open Port {svc_port}", height=28, command=make_open_url(url))
+                btn_svc.pack(pady=(0, 10), padx=10)
+                
+        # 3. PlexTraktSync OAuth
+        if "plextraktsync" in selected:
+            pts_frame = ctk.CTkFrame(scroll, fg_color=["#F0F0F0", "#1E1E1E"], corner_radius=8, border_width=1, border_color=["#D0D0D0", "#303030"])
+            pts_frame.pack(fill="x", padx=10, pady=15)
+            
+            pts_title = ctk.CTkLabel(pts_frame, text="🔗 PlexTraktSync OAuth Authorization Guide", font=ctk.CTkFont(size=14, weight="bold"))
+            pts_title.pack(anchor="w", padx=15, pady=(12, 5))
             
             pts_desc = (
                 "PlexTraktSync requires initial authorization to access your Plex and Trakt.tv accounts.\n"
@@ -1644,6 +1935,25 @@ class DockerSetupGUI(ctk.CTk):
             
             btn_auth = ctk.CTkButton(pts_frame, text="Authorize PlexTraktSync", command=authorize_pts)
             btn_auth.pack(anchor="w", padx=15, pady=(0, 15))
+            
+        # 4. Next Steps Checklist
+        checklist_lbl = ctk.CTkLabel(scroll, text="📋 Recommended Next Steps Checklist", font=ctk.CTkFont(size=15, weight="bold"))
+        checklist_lbl.pack(anchor="w", padx=10, pady=(15, 5))
+        
+        chk_frame = ctk.CTkFrame(scroll, fg_color=["#F2F2F2", "#2B2B2B"], corner_radius=8)
+        chk_frame.pack(fill="x", padx=10, pady=5)
+        
+        checklist_items = [
+            "1. Access Dockge to confirm all compose stacks have successfully initialized and run.",
+            "2. Open Prowlarr and configure your Torrent/Usenet indexers (they will sync to Sonarr/Radarr automatically).",
+            "3. Verify download clients (SABnzbd or qBittorrent) are correctly linked to your PVR tools (Sonarr, Radarr, etc.).",
+            "4. Map your library folders in Sonarr and Radarr, ensuring they match the mounted media path (/tv, /movies).",
+            "5. Open Homepage Dashboard to view live health status widgets for all services."
+        ]
+        
+        for item in checklist_items:
+            lbl_item = ctk.CTkLabel(chk_frame, text=item, wraplength=550, justify="left", font=ctk.CTkFont(size=12))
+            lbl_item.pack(anchor="w", padx=15, pady=6)
 
     def create_logs_view(self) -> ctk.CTkFrame:
         frame = ctk.CTkFrame(self.main_container, fg_color="transparent")
