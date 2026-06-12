@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.48] - 2026-06-11
+### Fixed
+- **[GUI]** Fixed Windows console window auto-hiding logic at startup by verifying the console owner PID matches either the child Python process or the parent PyInstaller bootloader process.
+
 ## [1.5.47] - 2026-06-11
 ### Added
 - **[GUI]** Added checkboxes checklist modal window for recommended companion services instead of binary Yes/No dialog.

@@ -102,7 +102,7 @@ def run_docker_linux_build(project_root: str):
         "-w", "/app",
         "python:3.10-slim",
         "sh", "-c", (
-            "apt-get update && apt-get install -y binutils && "
+            "apt-get update && apt-get install -y binutils python3-tk && "
             "pip install --no-cache-dir pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal customtkinter darkdetect && "
             "customtkinter_path=$(python -c 'import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))') && "
             "pyinstaller --onefile --clean --add-data 'resources/services.yml:resources' --add-data 'resources/templates.yml:resources' --add-data \"$customtkinter_path:customtkinter\" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect dockersetup.py"
