@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.5.47] - 2026-06-11
+### Added
+- **[GUI]** Added checkboxes checklist modal window for recommended companion services instead of binary Yes/No dialog.
+- **[GUI]** Added Docker Daemon Preflight and Pre-deployment checks to block setup/start if the daemon is stopped.
+- **[GUI]** Redesigned the post-deployment "Next Steps" tab with interactive cards and buttons linking dynamically to live container host ports.
+### Fixed
+- **[GUI]** Implemented live Docker container inspect queries to retrieve active running status and exact bound host ports for Service Status checks.
+- **[GUI]** Added window force redraws to fix graphical overlaps and glitches during manual or automatic resolution scaling.
+- **[Homepage]** Fixed dashboard setup crashes by omitting empty stack groups and corrected invalid nested dashes syntax in bookmarks template.
+- **[Homepage]** Dynamically mapped container ports for internal pings and widgets while keeping host ports for browser navigation.
+- **[Main]** Checked socket ports against 127.0.0.1 loopback instead of localhost to prevent IPv6 DNS resolution issues.
+
 ## [1.5.46] - 2026-06-11
 ### Fixed
 - **[GUI]** Optimized Advanced/Minimal setup visibility toggling to reuse layouts instantly rather than rebuilding all widgets from scratch, eliminating layout switches lag.
