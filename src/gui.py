@@ -95,7 +95,8 @@ class DockerSetupGUI(ctk.CTk):
                 if hwnd != 0:
                     pid = ctypes.wintypes.DWORD()
                     ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                    if pid.value == os.getpid():
+                    # Check against both python process PID and the bootloader parent process PID
+                    if pid.value == os.getpid() or pid.value == os.getppid():
                         ctypes.windll.user32.ShowWindow(hwnd, 0) # SW_HIDE = 0
             except Exception:
                 pass
