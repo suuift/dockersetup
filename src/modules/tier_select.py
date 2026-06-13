@@ -10,14 +10,15 @@ def select_services() -> list:
     project_root = get_project_root()
     services_path = get_resource_path("services.yml")
 
+    from src.apps.loader import get_apps_list
+    apps = get_apps_list()
+
     metadata = get_metadata()
     if os.getenv("SKIP_SELECTION") == "true" and metadata.get("selected_services"):
         write_log("[UPGRADE] Recovered existing service selection from metadata. Skipping menu.", level="DEBUG")
         console.print("[✓] Service selections loaded from metadata", style="green")
         return metadata["selected_services"]
 
-    master_registry = get_yaml_content(services_path)
-    
     # 1. Tier selection
     choice = questionary.select(
         "Choose Stack Tier Selection Mode:",
@@ -29,38 +30,52 @@ def select_services() -> list:
 
     selected = []
 
+    # Define minimal keys
+    MINIMAL_KEYS = {
+        "sonarr", "radarr", "lidarr", "flaresolverr", "bazarr", "prowlarr",
+        "sabnzbd", "seerr", "recyclarr", "plex", "watchtower", "docker-prune",
+        "tautulli", "homepage"
+    }
+
     # 2. Add minimal services
-    if "MINIMAL" in master_registry:
-        write_log("Configuring MINIMAL services:", level="DEBUG")
-        for svc in master_registry["MINIMAL"]:
-            write_log(f" + {svc.key}", level="DEBUG")
-            selected.append(svc.key)
+    write_log("Configuring MINIMAL services:", level="DEBUG")
+    for app in apps:
+        if app.key in MINIMAL_KEYS:
+            write_log(f" + {app.key}", level="DEBUG")
+            selected.append(app.key)
 
     # 3. Custom / Advanced selections
     if choice == "2":
-        categories = ["MANAGEMENT", "NETWORKING", "DATABASE", "REMOTE", "TOOLS", "GAMES"]
-        for cat in categories:
-            if cat in master_registry and master_registry[cat]:
-                show_cat = safe_confirm(f"\nShow services in {cat}?", default=False)
-                if show_cat:
-                    choices = [
-                        questionary.Choice(
-                            title=f"{svc.key} - {svc.description}" if svc.description else svc.key,
-                            value=svc.key,
-                            checked=(svc.key in selected)
-                        )
-                        for svc in master_registry[cat]
-                    ]
-                    cat_selection = questionary.checkbox(
-                        f"Select services in {cat}:",
-                        choices=choices
-                    ).ask()
-                    if cat_selection:
-                        for s in cat_selection:
-                            if s not in selected:
-                                selected.append(s)
-                else:
-                    write_log(f"Skipping category: {cat}", level="DEBUG")
+        categories = {}
+        for app in apps:
+            cat = app.stack_group.upper() if app.stack_group else "GENERAL"
+            if not cat or cat == "NONE":
+                cat = "UTILITIES"
+            if cat not in categories:
+                categories[cat] = []
+            categories[cat].append(app)
+
+        for cat in sorted(categories.keys()):
+            show_cat = safe_confirm(f"\nShow services in {cat}?", default=False)
+            if show_cat:
+                choices = [
+                    questionary.Choice(
+                        title=f"{svc.key} - {svc.description}" if svc.description else svc.key,
+                        value=svc.key,
+                        checked=(svc.key in selected)
+                    )
+                    for svc in categories[cat]
+                ]
+                cat_selection = questionary.checkbox(
+                    f"Select services in {cat}:",
+                    choices=choices
+                ).ask()
+                if cat_selection:
+                    for s in cat_selection:
+                        if s not in selected:
+                            selected.append(s)
+            else:
+                write_log(f"Skipping category: {cat}", level="DEBUG")
 
     # 4. Dependency Mapping & Auto-Inclusion (Edge Case 11)
     db_addons = {
@@ -74,10 +89,7 @@ def select_services() -> list:
             write_log(f"Automatically added dependency helper application: {addon}", level="DEBUG")
 
     # 5. Recommendation Engine
-    rec_map = {}
-    if "RECOMMENDATIONS" in master_registry:
-        for item in master_registry["RECOMMENDATIONS"]:
-            rec_map[item.source] = item.recommendations
+    rec_map = {app.key: app.recommendations for app in apps if app.recommendations}
 
     suggested = []
     # Only suggest companion recommendations if custom/advanced setup mode (Tier 2) is chosen

@@ -72,24 +72,10 @@ class DockerSetupGUI(ctk.CTk):
             return 1.25
 
     def on_window_resize_event(self, event):
-        if event.widget != self:
-            return
-        if self.resize_timer:
-            self.after_cancel(self.resize_timer)
-        self.resize_timer = self.after(200, self.apply_dynamic_resize_scale)
+        pass
 
     def apply_dynamic_resize_scale(self):
-        current_width = self.winfo_width()
-        if abs(self.last_scaled_width - current_width) < 15:
-            return
-        self.last_scaled_width = current_width
-        width_ratio = current_width / self.baseline_width
-        base_scale = self.get_linux_dpi_scale() if sys.platform.startswith("linux") else 1.0
-        new_scale = max(base_scale, min(base_scale * width_ratio, 1.8))
-        ctk.set_widget_scaling(new_scale)
-        self.scaling_optionmenu.set(f"{int(new_scale * 100)}%")
-        self.update_idletasks()
-        self.update()
+        pass
 
     def __init__(self):
         super().__init__()
@@ -132,7 +118,8 @@ class DockerSetupGUI(ctk.CTk):
             except Exception:
                 pass
 
-        self.bind("<Configure>", self.on_window_resize_event)
+        # Disabled to allow smooth native window manager scaling without glitching or layout resets
+        # self.bind("<Configure>", self.on_window_resize_event)
 
         # Force Headless execution mode for background modules to bypass interactive questionary prompts
         os.environ["DS_HEADLESS"] = "true"
@@ -191,21 +178,26 @@ class DockerSetupGUI(ctk.CTk):
         self.appearance_mode_optionemenu = ctk.CTkOptionMenu(self.sidebar_frame, values=["System", "Dark", "Light"], command=self.change_appearance_mode)
         self.appearance_mode_optionemenu.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
         
-        # UI Scaling Selector
-        self.scaling_label = ctk.CTkLabel(self.sidebar_frame, text="UI Scaling:", anchor="w")
+        # UI Scaling Control
+        self.scaling_label = ctk.CTkLabel(self.sidebar_frame, text="UI Scaling: 100%", anchor="w")
         self.scaling_label.grid(row=9, column=0, padx=20, pady=(5, 0), sticky="w")
-        self.scaling_optionmenu = ctk.CTkOptionMenu(
-            self.sidebar_frame, 
-            values=["80%", "90%", "100%", "110%", "120%", "150%", "180%", "200%"],
-            command=self.change_scaling_event
-        )
-        self.scaling_optionmenu.grid(row=10, column=0, padx=20, pady=(5, 20), sticky="ew")
+        
+        scaling_buttons_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
+        scaling_buttons_frame.grid(row=10, column=0, padx=20, pady=(5, 20), sticky="ew")
+        scaling_buttons_frame.grid_columnconfigure(0, weight=1)
+        scaling_buttons_frame.grid_columnconfigure(1, weight=1)
+        
+        self.btn_scale_down = ctk.CTkButton(scaling_buttons_frame, text="➖", width=40, height=30, command=self.zoom_out)
+        self.btn_scale_down.grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        
+        self.btn_scale_up = ctk.CTkButton(scaling_buttons_frame, text="➕", width=40, height=30, command=self.zoom_in)
+        self.btn_scale_up.grid(row=0, column=1, padx=(5, 0), sticky="ew")
         
         try:
-            current_scale_pct = f"{int(ctk.get_widget_scaling() * 100)}%"
-            self.scaling_optionmenu.set(current_scale_pct)
+            current_scale = ctk.get_widget_scaling()
+            self.scaling_label.configure(text=f"UI Scaling: {int(current_scale * 100)}%")
         except Exception:
-            self.scaling_optionmenu.set("100%")
+            self.scaling_label.configure(text="UI Scaling: 100%")
         
         # 3. Main Display Area
         self.main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -257,11 +249,27 @@ class DockerSetupGUI(ctk.CTk):
     def change_appearance_mode(self, new_mode: str):
         ctk.set_appearance_mode(new_mode)
 
-    def change_scaling_event(self, new_scaling: str):
+    def zoom_in(self):
         try:
-            scale_val = int(new_scaling.replace("%", "")) / 100
+            curr = ctk.get_widget_scaling()
+            new_scale = min(curr + 0.1, 2.0)
+            self.apply_scaling_factor(new_scale)
+        except Exception:
+            pass
+
+    def zoom_out(self):
+        try:
+            curr = ctk.get_widget_scaling()
+            new_scale = max(curr - 0.1, 0.8)
+            self.apply_scaling_factor(new_scale)
+        except Exception:
+            pass
+
+    def apply_scaling_factor(self, scale_val: float):
+        try:
             ctk.set_widget_scaling(scale_val)
             ctk.set_window_scaling(scale_val)
+            self.scaling_label.configure(text=f"UI Scaling: {int(scale_val * 100)}%")
             self.last_scaled_width = self.winfo_width()
             self.update_idletasks()
             self.update()
@@ -326,6 +334,7 @@ class DockerSetupGUI(ctk.CTk):
         self.update_navigation_buttons()
         self.select_sidebar_button(self.btn_services)
         self.hide_all_frames()
+        self.build_services_checkboxes()
         self.services_frame.grid(row=0, column=0, sticky="nsew")
 
     def show_env_frame(self, from_next=False):
