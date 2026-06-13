@@ -15,6 +15,7 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
         "--clean",
         "--add-data", f"resources/services.yml{data_sep}resources",
         "--add-data", f"resources/templates.yml{data_sep}resources",
+        "--add-data", f"src/apps{data_sep}src/apps",
         "--add-data", f"{customtkinter_path}{data_sep}customtkinter",
         "--hidden-import", "tkinter",
         "--hidden-import", "customtkinter",

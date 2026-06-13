@@ -72,10 +72,22 @@ class DockerSetupGUI(ctk.CTk):
             return 1.25
 
     def on_window_resize_event(self, event):
-        pass
+        if event.widget != self:
+            return
+        if self.resize_timer:
+            self.after_cancel(self.resize_timer)
+        self.resize_timer = self.after(500, self.apply_dynamic_resize_scale)
 
     def apply_dynamic_resize_scale(self):
-        pass
+        current_width = self.winfo_width()
+        if abs(self.last_scaled_width - current_width) < 15:
+            return
+        self.last_scaled_width = current_width
+        width_ratio = current_width / self.baseline_width
+        base_scale = self.get_linux_dpi_scale() if sys.platform.startswith("linux") else 1.0
+        new_scale = max(base_scale, min(base_scale * width_ratio, 1.8))
+        self.current_scale = new_scale
+        self.apply_scaling_factor(new_scale)
 
     def __init__(self):
         super().__init__()
@@ -102,6 +114,7 @@ class DockerSetupGUI(ctk.CTk):
         self.resize_timer = None
         self.baseline_width = 1000
         self.last_scaled_width = 1000
+        self.current_scale = 1.0
         
         # Determine theme based on system setting
         ctk.set_appearance_mode("System")
@@ -115,11 +128,11 @@ class DockerSetupGUI(ctk.CTk):
                 ctk.set_window_scaling(scale)
                 self.last_scaled_width = int(1000 * scale)
                 self.baseline_width = int(1000 * scale)
+                self.current_scale = scale
             except Exception:
                 pass
 
-        # Disabled to allow smooth native window manager scaling without glitching or layout resets
-        # self.bind("<Configure>", self.on_window_resize_event)
+        self.bind("<Configure>", self.on_window_resize_event)
 
         # Force Headless execution mode for background modules to bypass interactive questionary prompts
         os.environ["DS_HEADLESS"] = "true"
@@ -250,29 +263,19 @@ class DockerSetupGUI(ctk.CTk):
         ctk.set_appearance_mode(new_mode)
 
     def zoom_in(self):
-        try:
-            curr = ctk.get_widget_scaling()
-            new_scale = min(curr + 0.1, 2.0)
-            self.apply_scaling_factor(new_scale)
-        except Exception:
-            pass
+        self.current_scale = min(self.current_scale + 0.1, 2.0)
+        self.apply_scaling_factor(self.current_scale)
 
     def zoom_out(self):
-        try:
-            curr = ctk.get_widget_scaling()
-            new_scale = max(curr - 0.1, 0.8)
-            self.apply_scaling_factor(new_scale)
-        except Exception:
-            pass
+        self.current_scale = max(self.current_scale - 0.1, 0.8)
+        self.apply_scaling_factor(self.current_scale)
 
     def apply_scaling_factor(self, scale_val: float):
         try:
             ctk.set_widget_scaling(scale_val)
             ctk.set_window_scaling(scale_val)
             self.scaling_label.configure(text=f"UI Scaling: {int(scale_val * 100)}%")
-            self.last_scaled_width = self.winfo_width()
             self.update_idletasks()
-            self.update()
         except Exception:
             pass
 
