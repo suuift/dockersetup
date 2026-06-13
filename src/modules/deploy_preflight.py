@@ -96,16 +96,15 @@ def run_deploy_preflight() -> bool:
     
     if selected_services:
         write_log("Auditing active network port mappings...", level="DEBUG")
-        services_path = get_resource_path("services.yml")
-        master_registry = get_yaml_content(services_path)
-        registry_list = get_registry_list(master_registry)
+        from src.apps.loader import get_apps_list
+        registry_list = get_apps_list()
         
         resolved_ports = metadata.get("resolved_ports", {})
         conflicts = []
         
         for svc in selected_services:
             reg = next((e for e in registry_list if e.key == svc), None)
-            if reg and reg.port and reg.port != "0":
+            if reg and reg.port and reg.port != 0:
                 port_num = int(reg.port)
                 
                 # Check connection

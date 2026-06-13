@@ -109,7 +109,7 @@ def get_template_blocks(file_path: str) -> Dict[str, str]:
         with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
     except Exception as e:
-        write_log(f"Failed to read templates.yml: {str(e)}", level="ERROR")
+        write_log(f"Failed to read template blocks from {file_path}: {str(e)}", level="ERROR")
         return {}
 
     for line in lines:
