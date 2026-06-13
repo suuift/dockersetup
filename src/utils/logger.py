@@ -10,14 +10,61 @@ from src.utils.paths import get_clean_env
 
 console = Console()
 
+import logging
+
+_logger = logging.getLogger("dockersetup")
+_logger.setLevel(logging.DEBUG)
+
 _custom_log_path = None
 _debug_logging = False
 _gui_log_callback = None
+_file_handler = None
+
+class GuiLogHandler(logging.Handler):
+    def emit(self, record):
+        global _gui_log_callback
+        if _gui_log_callback:
+            try:
+                msg = self.format(record)
+                _gui_log_callback(msg)
+            except Exception:
+                pass
+
+def configure_logging():
+    global _file_handler, _custom_log_path
+    
+    # Remove existing handlers to avoid duplicates
+    for handler in list(_logger.handlers):
+        _logger.removeHandler(handler)
+        
+    log_path = get_log_path()
+    base_path = os.path.dirname(log_path)
+    if not os.path.exists(base_path):
+        os.makedirs(base_path, exist_ok=True)
+        
+    formatter = logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    try:
+        # Resolve directory collision where setup.log might be a folder
+        if os.path.exists(log_path) and os.path.isdir(log_path):
+            try:
+                shutil.rmtree(log_path)
+            except OSError:
+                pass
+        _file_handler = logging.FileHandler(log_path, mode='a', encoding='utf-8')
+        _file_handler.setFormatter(formatter)
+        _logger.addHandler(_file_handler)
+    except OSError:
+        pass
+        
+    gui_handler = GuiLogHandler()
+    gui_handler.setFormatter(logging.Formatter('[%(asctime)s] [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+    _logger.addHandler(gui_handler)
 
 def set_log_path(path: str):
     global _custom_log_path
     _custom_log_path = os.path.abspath(path)
     os.environ["SETUP_LOG_DIR"] = _custom_log_path
+    configure_logging()
 
 def enable_debug_logging():
     global _debug_logging
@@ -27,6 +74,7 @@ def enable_debug_logging():
 def set_gui_log_callback(callback):
     global _gui_log_callback
     _gui_log_callback = callback
+    configure_logging()
 
 def get_log_path() -> str:
     if os.getenv("SETUP_LOG_DIR"):
@@ -34,52 +82,45 @@ def get_log_path() -> str:
     elif _custom_log_path:
         base_path = _custom_log_path
     else:
-        # Fallback relative to this file
         base_path = os.path.join(os.path.dirname(__file__), "..", "logs")
     return os.path.abspath(os.path.join(base_path, "setup.log"))
 
 def write_log(message: str, level: str = "INFO", clear: bool = False):
-    global _debug_logging, _gui_log_callback
+    global _debug_logging, _file_handler
     if os.getenv("DEBUG_LOGGING") == "true":
         _debug_logging = True
 
     log_path = get_log_path()
-    base_path = os.path.dirname(log_path)
-
-    # Resolve directory collision where setup.log might be a folder
-    if os.path.exists(log_path) and os.path.isdir(log_path):
-        try:
-            shutil.rmtree(log_path)
-        except OSError:
-            pass
-
+    
     if clear and os.path.exists(log_path):
+        if _file_handler:
+            _logger.removeHandler(_file_handler)
+            _file_handler.close()
+            _file_handler = None
         try:
-            os.remove(log_path)
+            if os.path.isdir(log_path):
+                shutil.rmtree(log_path)
+            else:
+                os.remove(log_path)
         except OSError:
             pass
-
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = f"[{timestamp}] [{level}] {message}\n"
-
-    if not os.path.exists(base_path):
-        os.makedirs(base_path, exist_ok=True)
-
-    # Retry write if file is locked
-    for _ in range(3):
-        try:
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(log_entry)
-            break
-        except OSError:
-            time.sleep(0.1)
-
-    # Trigger GUI log callback if set
-    if _gui_log_callback:
-        try:
-            _gui_log_callback(log_entry.strip())
-        except Exception:
-            pass
+            
+    if not _logger.handlers:
+        configure_logging()
+    elif _file_handler and os.path.abspath(_file_handler.baseFilename) != os.path.abspath(log_path):
+        configure_logging()
+        
+    log_level = logging.INFO
+    if level == "DEBUG":
+        log_level = logging.DEBUG
+    elif level == "WARN":
+        log_level = logging.WARNING
+    elif level == "ERROR":
+        log_level = logging.ERROR
+    elif level == "TRACE":
+        log_level = logging.DEBUG
+        
+    _logger.log(log_level, message)
 
     if level != "TRACE":
         if level == "INFO":

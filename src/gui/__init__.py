@@ -257,6 +257,20 @@ class DockerSetupGUI(ctk.CTk):
         
         # Start background queue reader for logs
         self.after(100, self.read_log_queue)
+        
+        # Bind clean up handler on window close
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def on_close(self):
+        if getattr(sys, "frozen", False):
+            for suffix in [".old", ".new"]:
+                path = sys.executable + suffix
+                if os.path.exists(path):
+                    try:
+                        os.remove(path)
+                    except OSError:
+                        pass
+        self.destroy()
 
     def change_appearance_mode(self, new_mode: str):
         ctk.set_appearance_mode(new_mode)

@@ -20,11 +20,15 @@ def load_apps() -> Dict[str, BaseApp]:
             module = importlib.import_module(full_module_name)
             
             for attribute_name in dir(module):
-                attribute = getattr(module, attribute_name)
-                if isinstance(attribute, type) and issubclass(attribute, BaseApp) and attribute is not BaseApp:
-                    app_instance = attribute()
-                    if app_instance.key:
-                        _loaded_apps[app_instance.key] = app_instance
+                try:
+                    attribute = getattr(module, attribute_name)
+                    if isinstance(attribute, type) and issubclass(attribute, BaseApp) and attribute is not BaseApp:
+                        app_instance = attribute()
+                        if app_instance.key:
+                            _loaded_apps[app_instance.key] = app_instance
+                except Exception as ex:
+                    from src.utils.logger import write_log
+                    write_log(f"Failed to load class '{attribute_name}' in '{module_name}': {str(ex)}", level="ERROR")
         except Exception as e:
             from src.utils.logger import write_log
             write_log(f"Failed to load app plugin '{module_name}': {str(e)}", level="ERROR")
