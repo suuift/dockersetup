@@ -19,6 +19,13 @@ def run_local_build(pyinstaller_cmd: list, data_sep: str, project_root: str):
         "--hidden-import", "tkinter",
         "--hidden-import", "customtkinter",
         "--hidden-import", "darkdetect",
+        "--exclude-module", "numpy",
+        "--exclude-module", "pandas",
+        "--exclude-module", "scipy",
+        "--exclude-module", "matplotlib",
+        "--exclude-module", "setuptools",
+        "--exclude-module", "pip",
+        "--exclude-module", "wheel",
     ]
     
     # Enable automatic Administrator elevation and set icon for Windows builds
@@ -105,7 +112,7 @@ def run_docker_linux_build(project_root: str):
             "apt-get update && apt-get install -y binutils python3-tk && "
             "pip install --no-cache-dir pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal customtkinter darkdetect && "
             "customtkinter_path=$(python -c 'import customtkinter; import os; print(os.path.dirname(customtkinter.__file__))') && "
-            "pyinstaller --onefile --clean --add-data 'resources/services.yml:resources' --add-data 'resources/templates.yml:resources' --add-data \"$customtkinter_path:customtkinter\" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect dockersetup.py"
+            "pyinstaller --onefile --clean --add-data 'resources/services.yml:resources' --add-data 'resources/templates.yml:resources' --add-data \"$customtkinter_path:customtkinter\" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect --exclude-module=numpy --exclude-module=pandas --exclude-module=scipy --exclude-module=matplotlib --exclude-module=setuptools --exclude-module=pip --exclude-module=wheel dockersetup.py"
         )
     ]
     

@@ -15,16 +15,16 @@ from src.utils.state import get_metadata, set_metadata
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
 from src.utils.updater import invoke_self_update, VERSION
 
-# Import modules
-from src.modules.preflight import run_system_preflight
-from src.modules.deploy_preflight import run_deploy_preflight
-from src.modules.tier_select import select_services
-from src.modules.env_wizard import configure_environment
-from src.modules.directories import setup_directories
-from src.modules.network import setup_networks
-from src.modules.compose_build import build_compose_stacks
-from src.modules.deploy_start import deploy_stacks
-from src.modules.auto_configure import auto_stitch_services, test_port
+# Import modules locally in main or methods for lazy loading performance optimization
+# from src.modules.preflight import run_system_preflight
+# from src.modules.deploy_preflight import run_deploy_preflight
+# from src.modules.tier_select import select_services
+# from src.modules.env_wizard import configure_environment
+# from src.modules.directories import setup_directories
+# from src.modules.network import setup_networks
+# from src.modules.compose_build import build_compose_stacks
+# from src.modules.deploy_start import deploy_stacks
+# from src.modules.auto_configure import auto_stitch_services, test_port
 
 console = Console()
 
@@ -363,7 +363,17 @@ def main():
 
                 failed = False
                 try:
-                    # Run linear modules
+                    # Run linear modules loaded locally for lazy execution optimization
+                    from src.modules.preflight import run_system_preflight
+                    from src.modules.deploy_preflight import run_deploy_preflight
+                    from src.modules.tier_select import select_services
+                    from src.modules.env_wizard import configure_environment
+                    from src.modules.directories import setup_directories
+                    from src.modules.network import setup_networks
+                    from src.modules.compose_build import build_compose_stacks
+                    from src.modules.deploy_start import deploy_stacks
+                    from src.modules.auto_configure import auto_stitch_services
+
                     run_system_preflight()
                     select_services()
                     if not run_deploy_preflight():

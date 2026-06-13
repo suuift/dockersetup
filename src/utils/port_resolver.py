@@ -19,6 +19,8 @@ def resolve_port_conflicts(selected_apps: List[BaseApp], env_path: str) -> List[
     and writing host environment variable overrides (e.g. KEY_PORT) to .env if in use.
     Returns a list of override notification strings.
     """
+    from concurrent.futures import ThreadPoolExecutor
+    
     notifications = []
     allocated_ports: Dict[int, str] = {}
     
@@ -37,28 +39,52 @@ def resolve_port_conflicts(selected_apps: List[BaseApp], env_path: str) -> List[
     # Place proxy services first
     sorted_apps = sorted(selected_apps, key=lambda a: 0 if a.key in immutables else 1)
 
+    # Perform a pre-scan check in parallel of default/configured port values to warm caches
+    ports_to_check = set()
+    for app in sorted_apps:
+        port = int(app.port)
+        if port == 0:
+            continue
+        env_key = f"{app.key.replace('-', '_').upper()}_PORT"
+        if env_key in existing_env:
+            try:
+                port = int(existing_env[env_key])
+            except ValueError:
+                pass
+        ports_to_check.add(port)
+
+    # Parallel socket binds validation
+    port_status: Dict[int, bool] = {}
+    with ThreadPoolExecutor() as executor:
+        results = executor.map(is_port_in_use, ports_to_check)
+        for p, in_use in zip(ports_to_check, results):
+            port_status[p] = in_use
+
+    # Sequential logic evaluation
     for app in sorted_apps:
         port = int(app.port)
         if port == 0:
             continue
 
         env_key = f"{app.key.replace('-', '_').upper()}_PORT"
-        
-        # Respect existing env definitions first
         if env_key in existing_env:
             try:
                 port = int(existing_env[env_key])
             except ValueError:
                 pass
 
-        # Check for overlaps
-        if port in allocated_ports or is_port_in_use(port):
+        in_use_on_host = port_status.get(port, False)
+        # Re-verify if not cached
+        if port not in port_status:
+            in_use_on_host = is_port_in_use(port)
+            port_status[port] = in_use_on_host
+
+        # Check for overlaps or host port locks
+        if port in allocated_ports or in_use_on_host:
             if app.key in immutables:
-                # Proxy ports are immutable, register as allocated
                 allocated_ports[port] = app.key
                 continue
 
-            # Auto-resolve: find next available port
             candidate_port = port
             while is_port_in_use(candidate_port) or candidate_port in allocated_ports:
                 candidate_port += 1
@@ -67,9 +93,6 @@ def resolve_port_conflicts(selected_apps: List[BaseApp], env_path: str) -> List[
                 f"Resolved port collision for {app.name}: mapped port {port} -> {candidate_port}."
             )
             port = candidate_port
-            
-            # Save to env
-            # (In a real run, the caller or env writer will persist this to the actual file)
             existing_env[env_key] = str(port)
 
         allocated_ports[port] = app.key
