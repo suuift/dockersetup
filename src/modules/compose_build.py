@@ -12,21 +12,56 @@ def indent_service_block(block: str) -> str:
     """
     return "\n".join("  " + line if line.strip() else "" for line in block.splitlines())
 
+COMPOSE_HEADER = """networks:
+  default:
+    driver: bridge
+  npm_proxy:
+    external: true
+  media-internal:
+    external: true
+
+x-environment: &default-tz-puid-pgid
+  TZ: $TZ
+  PUID: $PUID
+  PGID: $PGID
+
+x-logging: &default-logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-common-keys-core: &common-keys-core
+  <<: *default-logging
+  networks:
+    - npm_proxy
+  security_opt:
+    - no-new-privileges:true
+  restart: always
+
+x-common-keys-apps: &common-keys-apps
+  <<: *default-logging
+  networks:
+    - npm_proxy
+    - media-internal
+  security_opt:
+    - no-new-privileges:true
+  restart: unless-stopped
+
+services:
+"""
+
 def build_compose_stacks() -> bool:
     write_step("Generating Docker Compose stack configurations")
 
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
     env_path = resolve_path_slash(os.path.join(deploy_dir, ".env"))
-    template_path = get_resource_path("templates.yml")
-    services_path = get_resource_path("services.yml")
 
-    # Load Master Registry
-    master_registry = get_yaml_content(services_path)
-    if "STACK_GROUPS" not in master_registry or not master_registry["STACK_GROUPS"]:
-        raise ValueError("STACK_GROUPS section missing in services.yml")
-
-    # Load State
+    # Load state & apps dynamically
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
     metadata = get_metadata()
     selected_services = metadata.get("selected_services", [])
 
@@ -40,16 +75,8 @@ def build_compose_stacks() -> bool:
         if db in selected_services and addon not in selected_services:
             selected_services.append(addon)
 
-    # Load templates
-    templates = get_template_blocks(template_path)
-
     # Update Hash in Metadata
-    sha256 = hashlib.sha256()
-    with open(template_path, "rb") as f:
-        for chunk in iter(lambda: f.read(4096), b""):
-            sha256.update(chunk)
-    current_hash = sha256.hexdigest().upper()
-    metadata["template_hash"] = current_hash
+    metadata["template_hash"] = "DYNAMIC"
     set_metadata(metadata)
 
     stacks_dir = resolve_path_slash(os.path.join(deploy_dir, "stacks"))
@@ -77,11 +104,25 @@ def build_compose_stacks() -> bool:
             drive_letter = clean_m.replace(":/", "").replace(":\\", "").replace(":", "")
             dynamic_mounts_string += f"      - {clean_m}:/srv/{drive_letter}_Drive\n"
 
+    # Group services by stack_group
+    stack_groups_list = ["core", "media-pvr", "media-server", "downloaders", "maintenance", "personal-cloud", "games"]
+    services_by_stack = {}
+    for svc in selected_services:
+        app = apps_dict.get(svc)
+        if app:
+            sg = app.stack_group or "utilities"
+            if sg not in services_by_stack:
+                services_by_stack[sg] = []
+            services_by_stack[sg].append(svc)
+
+    ordered_stack_names = list(stack_groups_list)
+    for sg in services_by_stack:
+        if sg not in ordered_stack_names:
+            ordered_stack_names.append(sg)
+
     # --- STACK GENERATION LOOP ---
-    for group in master_registry["STACK_GROUPS"]:
-        stack_name = group.name
-        group_services = group.services
-        active_services = [s for s in selected_services if s in group_services]
+    for stack_name in ordered_stack_names:
+        active_services = services_by_stack.get(stack_name, [])
 
         if active_services:
             write_log(f"Generating stack: {stack_name} ({len(active_services)} services)")
@@ -89,11 +130,12 @@ def build_compose_stacks() -> bool:
             os.makedirs(stack_path, exist_ok=True)
 
             # Build Compose
-            output = templates.get("header", "")
+            output = COMPOSE_HEADER
             for svc in active_services:
                 write_log(f"Adding service to {stack_name}: {svc}", level="DEBUG")
-                if svc in templates:
-                    svc_content = templates[svc]
+                app = apps_dict.get(svc)
+                if app:
+                    svc_content = app.get_compose_template()
 
                     # Security warning for privileged containers
                     if "privileged: true" in svc_content or "cap_add:" in svc_content and "SYS_ADMIN" in svc_content:
@@ -116,7 +158,7 @@ def build_compose_stacks() -> bool:
 
                     output += "\n" + indent_service_block(svc_content)
                 else:
-                    write_log(f"Template NOT FOUND for service: {svc}", level="DEBUG")
+                    write_log(f"Plugin NOT FOUND for service: {svc}", level="DEBUG")
 
             # Write Compose File
             compose_file_path = os.path.join(stack_path, "docker-compose.yml")
@@ -227,20 +269,31 @@ location @clean_auth_demanded {
         hp_env_mappings = []
         active_hp_groups = []
 
-        registry_list = get_registry_list(master_registry)
-
-        supported_widgets = {}
-        if "SUPPORTED_WIDGETS" in master_registry:
-            for widget in master_registry["SUPPORTED_WIDGETS"]:
-                supported_widgets[widget.name] = widget.alias
+        supported_widgets = {
+            "sonarr": "sonarr",
+            "radarr": "radarr",
+            "lidarr": "lidarr",
+            "readarr": "readarr",
+            "bazarr": "bazarr",
+            "prowlarr": "prowlarr",
+            "qbittorrent": "qbittorrent",
+            "sabnzbd": "sabnzbd",
+            "plex": "plex",
+            "jellyfin": "jellyfin",
+            "tautulli": "tautulli",
+            "portainer": "portainer",
+            "mylar": "mylar3",
+            "audiobookshelf": "audiobookshelf",
+            "paperless": "paperless",
+            "seerr": "seerr"
+        }
 
         def make_friendly_name(name: str) -> str:
             # Converts 'media-pvr' to 'Media PVR', 'media-server' to 'Media Server'
             parts = name.split('-')
             return " ".join([p.upper() if p.lower() in ["pvr", "vpn"] else p.capitalize() for p in parts])
 
-        for group in master_registry["STACK_GROUPS"]:
-            stack_name = group.name
+        for stack_name in ordered_stack_names:
             stack_apps = [a for a in homepage_services if a["Stack"] == stack_name and a["Name"] != "homepage"]
 
             if stack_apps:
@@ -250,22 +303,15 @@ location @clean_auth_demanded {
                 for app in stack_apps:
                     svc_key = app["Name"]
                     
-                    # Find registry entry
-                    reg_entry = None
-                    for entry in registry_list:
-                        if entry.key == svc_key:
-                            reg_entry = entry
-                            break
-                    
+                    app_instance = apps_dict.get(svc_key)
                     alias = svc_key
-                    port = "0"
-                    if reg_entry:
-                        if reg_entry.description and reg_entry.description != "none":
-                            alias = reg_entry.description  # Fallback to key or alias
-                        port = reg_entry.port
-
-                    container_port = port
-                    svc_template = templates.get(svc_key, "")
+                    port = 0
+                    if app_instance:
+                        alias = app_instance.name
+                        port = app_instance.port
+                    
+                    container_port = str(port)
+                    svc_template = app_instance.get_compose_template() if app_instance else ""
                     # Check for explicit PORT override
                     match_port = re.search(r"#\s*PORT:\s*(\d+)", svc_template)
                     if match_port:
@@ -289,7 +335,7 @@ location @clean_auth_demanded {
                                 container_port = port
 
                     clean_key = svc_key.split(" ")[0]
-                    if not port or port == "0" or (reg_entry and reg_entry.type == "none"):
+                    if not port or port == "0" or (app_instance and app_instance.category == "none"):
                         continue
 
                     hp_output += f"    - {svc_key}:\n"
@@ -316,9 +362,8 @@ location @clean_auth_demanded {
                         if clean_key == "plex":
                             url += "/web"
 
-                        # Get a clean description from the registry entry type
-                        reg = next((e for e in registry_list if e.key == svc_key), None)
-                        description = reg.type.capitalize() if reg and hasattr(reg, 'type') else alias
+                        # Get a clean description from the app instance category
+                        description = app_instance.category.capitalize() if app_instance and app_instance.category and app_instance.category != "none" else alias
 
                         hp_output += f"        href: {url}\n"
                         hp_output += f"        description: {description}\n"
@@ -391,13 +436,10 @@ location @clean_auth_demanded {
         if "fullWidth" not in settings_data:
             settings_data["fullWidth"] = True
         
-        # Determine strict priority order for top rows dynamically from services.yml stack groups
+        # Determine strict priority order for top rows dynamically from stack groups list
         priority_order = []
-        if "STACK_GROUPS" in master_registry:
-            for group in master_registry["STACK_GROUPS"]:
-                priority_order.append(make_friendly_name(group.name))
-        else:
-            priority_order = ["Media Server", "Media PVR", "Downloaders", "Maintenance"]
+        for sg in stack_groups_list:
+            priority_order.append(make_friendly_name(sg))
 
         ordered_groups = []
         

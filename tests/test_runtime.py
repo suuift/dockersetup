@@ -33,20 +33,14 @@ def test_path_resolution():
     assert resolve_path_slash("C:\\test\\path") == "C:/test/path"
     assert resolve_path_slash("D:") == "D:/"
 
-def test_yaml_parsers():
-    services_path = os.path.join(TEST_PROJECT_ROOT, "resources", "services.yml")
-    template_path = os.path.join(TEST_PROJECT_ROOT, "resources", "templates.yml")
-    
-    assert os.path.exists(services_path)
-    assert os.path.exists(template_path)
-    
-    master_registry = get_yaml_content(services_path)
-    assert "MINIMAL" in master_registry
-    assert "STACK_GROUPS" in master_registry
-    
-    templates = get_template_blocks(template_path)
-    assert "header" in templates
-    assert "sonarr" in templates
+def test_app_loader():
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
+    assert len(apps_dict) > 0
+    assert "sonarr" in apps_dict
+    sonarr_app = apps_dict["sonarr"]
+    assert sonarr_app.name == "Sonarr"
+    assert sonarr_app.port == 8989
 
 def test_metadata_read_write():
     meta = get_metadata()
@@ -317,36 +311,25 @@ def test_ast_and_syntax_validation():
         except SyntaxError as e:
             pytest.fail(f"Syntax error in {py_file}: {e}")
 
-def test_yaml_integrity_and_schema():
+def test_app_registry_and_schema():
     """
-    Ensure templates.yml and services.yml are well-formed and meet basic structure rules.
+    Ensure the dynamically loaded apps meet basic structure and schema rules.
     """
-    services_path = os.path.join(TEST_PROJECT_ROOT, "resources", "services.yml")
-    template_path = os.path.join(TEST_PROJECT_ROOT, "resources", "templates.yml")
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
+    assert len(apps_dict) > 0, "No apps loaded"
     
-    # Verify both exist
-    assert os.path.exists(services_path), "services.yml is missing"
-    assert os.path.exists(template_path), "templates.yml is missing"
-    
-    # Check services.yml structure
-    services_data = get_yaml_content(services_path)
-    assert isinstance(services_data, dict), "services.yml must parse to a dict"
-    
-    # Must have categories/tiers
-    required_keys = ["MINIMAL", "MANAGEMENT", "NETWORKING", "DATABASE", "REMOTE", "TOOLS", "GAMES", "STACK_GROUPS"]
-    for rk in required_keys:
-        assert rk in services_data, f"Required category/section '{rk}' missing in services.yml"
-        
-    # Check templates.yml structure
-    templates_data = get_template_blocks(template_path)
-    assert isinstance(templates_data, dict), "templates.yml must parse to a dictionary"
-    assert "header" in templates_data, "templates.yml must have a 'header' block defined"
-    
-    # Verify that all selected services in services.yml actually have templates in templates.yml
-    registry_list = get_registry_list(services_data)
-    for svc in registry_list:
-        if svc.key != "divider":
-            assert svc.key in templates_data, f"Service '{svc.key}' is defined in services.yml but has no template in templates.yml"
+    # Verify some key apps are present
+    expected_apps = ["sonarr", "radarr", "prowlarr", "bazarr"]
+    for ea in expected_apps:
+        assert ea in apps_dict, f"Expected app '{ea}' missing from loaded apps"
+        app = apps_dict[ea]
+        assert app.key == ea
+        assert app.name is not None
+        assert app.category is not None
+        assert app.stack_group is not None
+        assert app.port is not None
+        assert app.get_compose_template() != "", f"Empty compose template for '{ea}'"
 
 def test_strict_path_normalization_invariant():
     """

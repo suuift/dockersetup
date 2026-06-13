@@ -15,6 +15,7 @@ python-dotenv = "1.0.1"
 requests = "2.31.0"
 tzlocal = "5.2"
 customtkinter = "^5.2.2"
+pydantic = "^2.6.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "8.0.0"

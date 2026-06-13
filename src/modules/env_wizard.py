@@ -412,18 +412,23 @@ def configure_environment() -> bool:
         if drives_to_mount:
             extra_mounts = ",".join(drives_to_mount)
 
-    console.print("\n--- Service Secrets & Tokens ---", style="yellow")
+    # Generate secure backend passwords
+    write_log("Generating secure application passwords...", level="DEBUG")
+    db_root_pass = new_random_password()
+    db_pass = new_random_password()
+    mongo_pass = new_random_password()
+    kopia_pass = new_random_password()
+    crowdsec_enabled = "true" if "crowdsec" in selected_services else "false"
+    crowdsec_key = new_random_password() if crowdsec_enabled == "true" else ""
 
-    plex_claim = ""
-    cf_token = ""
-    cf_domains = ""
-    ts_key = ""
-    base_domain = "local.host"
-    vpn_prov = ""
-    vpn_client = ""
-    vpn_user = ""
-    vpn_pass = ""
-    lan_net = ""
+    # Compile environment variables
+    vars_dict = {
+        "TZ": tz, "PUID": puid, "PGID": pgid, "DOCKERDIR": docker_dir, "DATADRIVE": drive_pool,
+        "EXTRA_MOUNTS": extra_mounts, "USERDIR": docker_dir, "MYSQL_ROOT_PASSWORD": db_root_pass,
+        "MYSQL_USER": "mediauser", "MYSQL_PASSWORD": db_pass, "HTTP_USERNAME": http_user,
+        "HTTP_PASSWORD": http_pass, "DB_PASS": db_pass, "MONGO_PASS": mongo_pass,
+        "KOPIA_PASSWORD": kopia_pass, "CROWDSEC_ENABLED": crowdsec_enabled, "CROWDSEC_API_KEY": crowdsec_key
+    }
 
     # Helper method for browser integration with failsafe
     def launch_browser_safely(url: str):
@@ -440,68 +445,47 @@ def configure_environment() -> bool:
                 write_log(f"Failed to launch browser automatically: {str(e)}", level="WARN")
                 console.print(f"[!] Please open this URL manually: {url}", style="cyan")
 
-    if "plex" in selected_services:
-        console.print("\n[IMPORTANT] A Plex Claim Token links your server to your Plex account.", style="cyan")
-        console.print("This is highly recommended to automate installation, configure Plex,", style="grey50")
-        console.print("and authenticate Tautulli properly on the first run.", style="grey50")
-        
-        launch_browser_safely("https://www.plex.tv/claim")
-        
-        plex_claim = get_validated_input("Paste Plex Claim Token (leave blank to skip / configure manually later)", "")
-        if not plex_claim:
-            write_log("Plex Claim Token skipped. You will need to sign in to your Plex server manually.", level="WARN")
+    console.print("\n--- Service Secrets & Tokens ---", style="yellow")
 
-    if "cloudflare-ddns" in selected_services or "npm plus (+goaccess)" in selected_services:
-        base_domain = get_validated_input("Base Domain (e.g., example.com)", "local.host")
-
-    if "cloudflare-ddns" in selected_services:
-        cf_token = get_multiline_input("Cloudflare API Token", "")
-        cf_domains = get_validated_input("Cloudflare Domains (comma-separated)", "")
-
-    if "tailscale" in selected_services:
-        console.print("\n[IMPORTANT] Tailscale requires an Auth Key to register this node.", style="cyan")
-        console.print("To generate one: Settings -> Keys -> Generate Auth Key (check 'reusable').", style="grey50")
-        
-        launch_browser_safely("https://login.tailscale.com/admin/settings/keys")
-        
-        ts_key = get_multiline_input("Tailscale Auth Key (leave blank to skip / authorize manually later)", "")
-        if not ts_key:
-            write_log("Tailscale Auth Key skipped. You must run 'tailscale up' inside the container manually to authorize.", level="WARN")
-
-    if "qbittorrent-vpn" in selected_services:
-        console.print("\n--- VPN Configuration ---", style="cyan")
-        vpn_prov = get_validated_input("VPN Provider", "custom")
-        vpn_client = get_validated_input("VPN Client", "wireguard")
-        if os.getenv("DS_HEADLESS") == "true":
-            vpn_user = ""
-            vpn_pass = ""
-        else:
-            vpn_user = questionary.text("VPN Username:").ask() or ""
-            vpn_pass = questionary.password("VPN Password:").ask() or ""
-        lan_net = get_validated_input("Local Network Range", detect_lan_network())
-
-    # Generate secure backend passwords
-    write_log("Generating secure application passwords...", level="DEBUG")
-    db_root_pass = new_random_password()
-    db_pass = new_random_password()
-    mongo_pass = new_random_password()
-    kopia_pass = new_random_password()
-    crowdsec_enabled = "true" if "crowdsec" in selected_services else "false"
-    crowdsec_key = new_random_password() if crowdsec_enabled == "true" else ""
-
-    # Compile environment variables
-    # Sanitize environment variables quotes (Edge Case 17)
-    vars_dict = {
-        "TZ": tz, "PUID": puid, "PGID": pgid, "DOCKERDIR": docker_dir, "DATADRIVE": drive_pool,
-        "EXTRA_MOUNTS": extra_mounts, "USERDIR": docker_dir, "MYSQL_ROOT_PASSWORD": db_root_pass,
-        "MYSQL_USER": "mediauser", "MYSQL_PASSWORD": db_pass, "HTTP_USERNAME": http_user,
-        "HTTP_PASSWORD": http_pass, "PLEX_CLAIM": plex_claim, "CF_API_TOKEN": cf_token,
-        "CF_DOMAINS": cf_domains, "TS_AUTHKEY": ts_key, "BASE_DOMAIN": base_domain,
-        "VPN_PROV": vpn_prov, "VPN_CLIENT": vpn_client, "VPN_USER": vpn_user, "VPN_PASS": vpn_pass,
-        "LAN_NETWORK": lan_net, "DB_PASS": db_pass, "MONGO_PASS": mongo_pass,
-        "KOPIA_PASSWORD": kopia_pass, "CROWDSEC_ENABLED": crowdsec_enabled, "CROWDSEC_API_KEY": crowdsec_key
-    }
+    # Dynamic app parameters loading using Pydantic config models
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
     
+    for svc in selected_services:
+        if svc in apps_dict:
+            app = apps_dict[svc]
+            if app.config_model:
+                console.print(f"\n--- {app.name} Settings ---", style="yellow")
+                model = app.config_model
+                for field_name, field_info in model.model_fields.items():
+                    default_val = field_info.default if field_info.default is not None else ""
+                    description = field_info.description or field_name
+                    
+                    extra = field_info.json_schema_extra or {}
+                    help_url = extra.get("help_url")
+                    if help_url:
+                        launch_browser_safely(help_url)
+                        
+                    is_secret = extra.get("is_secret", False) or "pass" in field_name.lower() or "key" in field_name.lower() or "token" in field_name.lower()
+                    
+                    if os.getenv("DS_HEADLESS") == "true":
+                        val = default_val
+                    else:
+                        if is_secret:
+                            val = questionary.password(f"{description} (default: [hidden]):").ask()
+                        else:
+                            val = questionary.text(f"{description} (default: {default_val}):").ask()
+                            
+                        if val is None:
+                            write_log("User aborted setup.", level="WARN")
+                            sys.exit(1)
+                            
+                        val = val.strip()
+                        if not val:
+                            val = default_val
+                            
+                    vars_dict[field_name] = str(val)
+
     # Inject dynamically resolved alternative ports
     resolved_ports = metadata.get("resolved_ports", {})
     for svc, alt_port in resolved_ports.items():

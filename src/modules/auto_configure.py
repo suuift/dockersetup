@@ -14,11 +14,7 @@ from src.utils.logger import write_log, console, write_step, invoke_external_com
 from src.utils.state import get_metadata, set_metadata, set_env_var
 from src.utils.yaml_parser import get_yaml_content, get_registry_list
 
-# Explicit imports for strategies (required for PyInstaller tracing)
-from src.modules.strategies.strategy_servarr import run_servarr_strategy
-from src.modules.strategies.strategy_downloaders import run_downloaders_strategy
-from src.modules.strategies.strategy_dashboards import run_dashboards_strategy
-from src.modules.strategies.strategy_bazarr import run_bazarr_strategy
+
 
 def test_port(host: str, port: int, timeout: int = 2) -> bool:
     """
@@ -193,35 +189,29 @@ def auto_stitch_services() -> bool:
     project_root = get_project_root()
     deploy_dir = get_deploy_dir()
     env_path = os.path.join(deploy_dir, ".env")
-    services_path = get_resource_path("services.yml")
-
-    # Load Metadata
     metadata = get_metadata()
     selected = metadata.get("selected_services", [])
     if not selected:
         write_log("No selected services found in metadata. Skipping configuration.", level="WARN")
         return True
 
-    # Load Master Registry
-    master_registry = get_yaml_content(services_path)
-    registry_list = get_registry_list(master_registry)
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
 
-    configurable_apps = []
-    if "CONFIGURABLE_APPS" in master_registry:
-        configurable_apps = [a.name for a in master_registry["CONFIGURABLE_APPS"]]
+    configurable_apps = [app.key for app in apps_dict.values() if app.is_configurable]
 
     # --- 1. Service Readiness & Key Extraction ---
     keys = {}
     config_results = []
 
-    for svc_entry in registry_list:
-        svc = svc_entry.key
+    for app in apps_dict.values():
+        svc = app.key
         try:
             env_port = os.getenv(f"{svc.replace('-', '_').replace(' (+goaccess)', '').upper()}_PORT")
             if env_port and env_port.isdigit():
                 port = int(env_port)
             else:
-                port = int(svc_entry.port)
+                port = int(app.port)
         except ValueError:
             port = 0
 
@@ -234,25 +224,7 @@ def auto_stitch_services() -> bool:
                         keys[svc] = key
                         write_log(f"Extracted {svc} API Key.", level="INFO")
                         
-                    # Tautulli config seeding if Plex is deployed
-                    if svc == "tautulli":
-                        plex_token = os.getenv("PLEX_TOKEN")
-                        if plex_token and plex_token.strip():
-                            config_file = os.path.join(deploy_dir, "appdata", "tautulli", "config.ini")
-                            if os.path.exists(config_file):
-                                try:
-                                    config = configparser.ConfigParser(strict=False, empty_lines_in_values=False)
-                                    config.read(config_file, encoding="utf-8")
-                                    if not config.has_section("General"):
-                                        config.add_section("General")
-                                    config.set("General", "pms_url", "http://plex:32400")
-                                    config.set("General", "pms_token", plex_token.strip())
-                                    with open(config_file, "w", encoding="utf-8") as f:
-                                        config.write(f)
-                                    write_log("Successfully pre-seeded Tautulli config.ini with Plex token and URL.", level="INFO")
-                                    config_results.append("Configured Tautulli connection to Plex")
-                                except Exception as e:
-                                    write_log(f"Warning: Failed to seed Tautulli config.ini: {str(e)}", level="WARN")
+
 
                     if key:
                         env_key = f"{svc}_API_KEY".upper().replace("-", "_")
@@ -279,29 +251,21 @@ def auto_stitch_services() -> bool:
     if not http_pass:
         write_log("HTTP_PASSWORD not found. Skipping credential-dependent automation.", level="WARN")
     
-    # --- 3. Execute Strategies ---
-    # We pass invoke_robust_rest_method to strategies to maintain the Smart Verify logic
+    # --- 3. Execute Strategies dynamically via App Plugins ---
+    os.environ["HTTP_USERNAME"] = http_user
+    os.environ["HTTP_PASSWORD"] = http_pass
     tier = metadata.get("tier", "1")
-    
-    # A. Downloaders (Auth + PVR Links)
-    config_results.extend(run_downloaders_strategy(
-        selected, keys, registry_list, http_user, http_pass, deploy_dir, invoke_robust_rest_method, tier
-    ))
+    os.environ["DEPLOY_TIER"] = tier
 
-    # B. Servarr Stack (Auth + Prowlarr Links)
-    config_results.extend(run_servarr_strategy(
-        selected, keys, registry_list, http_user, http_pass, invoke_robust_rest_method, tier
-    ))
-
-    # C. Dashboards (Seerr Links)
-    config_results.extend(run_dashboards_strategy(
-        selected, keys, registry_list, invoke_robust_rest_method
-    ))
-
-    # D. Subtitles (Bazarr Links)
-    config_results.extend(run_bazarr_strategy(
-        selected, keys, registry_list, invoke_robust_rest_method
-    ))
+    for svc in selected:
+        app = apps_dict.get(svc)
+        if app:
+            try:
+                results = app.run_stitching(keys, deploy_dir, invoke_robust_rest_method)
+                if results:
+                    config_results.extend(results)
+            except Exception as e:
+                write_log(f"Stitching failed for service {svc}: {str(e)}", level="ERROR")
 
     # --- 4. Stitching Summary Report ---
     console.print("\n--- Service Stitching Report ---", style="bold yellow")

@@ -146,6 +146,7 @@ class DockerSetupGUI(ctk.CTk):
         self.selected_services = set()
         self.env_vars = {}
         self.chk_vars = {}
+        self.var_advanced_mode = tk.BooleanVar(value=False)
         
         # Navigation Locks State
         self.max_completed_step = 1
@@ -296,11 +297,11 @@ class DockerSetupGUI(ctk.CTk):
 
     def load_services_registry(self):
         try:
-            services_path = get_resource_path("services.yml")
-            self.master_registry = get_yaml_content(services_path)
-            self.registry = get_registry_list(self.master_registry)
+            from src.apps.loader import get_apps_list
+            self.registry = get_apps_list()
+            self.master_registry = {}
         except Exception as e:
-            write_log(f"GUI failed to load master registry: {str(e)}", level="ERROR")
+            write_log(f"GUI failed to load dynamic registry: {str(e)}", level="ERROR")
             self.registry = []
             self.master_registry = {}
 
@@ -396,9 +397,15 @@ class DockerSetupGUI(ctk.CTk):
         if hasattr(self, "env_frame") and hasattr(self.env_frame, "env_entries"):
             for key, entry in list(self.env_frame.env_entries.items()):
                 try:
-                    if hasattr(entry, "winfo_exists") and not entry.winfo_exists():
-                        continue
-                    env_dict[key] = entry.get().strip()
+                    if hasattr(entry, "winfo_exists"):
+                        if not entry.winfo_exists():
+                            continue
+                    if hasattr(entry, "get"):
+                        val = entry.get()
+                        if isinstance(val, bool):
+                            env_dict[key] = "true" if val else "false"
+                        else:
+                            env_dict[key] = str(val).strip()
                 except Exception:
                     pass
             
