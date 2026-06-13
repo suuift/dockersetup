@@ -103,3 +103,22 @@ class DeployFrame(BaseFrame):
         self.log_text.delete("1.0", tk.END)
         self.log_text.insert(tk.END, "\n".join(filtered_lines) + "\n")
         self.log_text.see(tk.END)
+
+    def update_step_status(self, step_key: str, status_text: str, color="white"):
+        if step_key in self.step_indicators:
+            names = {
+                "Preflight": "Preflight",
+                "Dirs": "Directories",
+                "Network": "Networks",
+                "Compose": "Compose",
+                "Containers": "Containers",
+                "Stitch": "Stitching"
+            }
+            name = names.get(step_key, step_key)
+            self.step_indicators[step_key].configure(
+                text=f"• {name}: {status_text}", 
+                text_color=color
+            )
+
+    def update_progress_bar(self, val: float):
+        self.progress_bar.set(val)

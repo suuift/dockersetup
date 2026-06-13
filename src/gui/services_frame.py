@@ -447,7 +447,7 @@ class ServicesFrame(BaseFrame):
             dialog.title("Recommended companion services")
             dialog.resizable(False, False)
             
-            dialog_height = min(400, 220 + 32 * len(missing_recs))
+            dialog_height = min(500, 300 + 32 * len(missing_recs))
             self.controller.center_over_parent(dialog, 520, dialog_height)
             dialog.transient(self)
             dialog.grab_set()

@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.55"
+VERSION = "1.5.56"
 
 def parse_version(v_str: str):
     """
@@ -228,9 +228,15 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
             # Unix: replace process in-place
             os.execve(target_exe_path, [target_exe_path], clean_env)
         else:
-            # Windows: delegate synchronously to preserve console attachment
-            ret = subprocess.run([target_exe_path] + sys.argv[1:], env=clean_env)
-            sys.exit(ret.returncode)
+            # Windows: Check if running as a GUI process (no console/stdout attached)
+            if getattr(sys, "frozen", False) and not sys.stdout:
+                # GUI mode: spawn detached asynchronously and exit parent immediately
+                subprocess.Popen([target_exe_path] + sys.argv[1:], env=clean_env, creationflags=0x00000008, close_fds=True)
+                os._exit(0)
+            else:
+                # CLI/Console mode: delegate synchronously to preserve console attachment
+                ret = subprocess.run([target_exe_path] + sys.argv[1:], env=clean_env)
+                sys.exit(ret.returncode)
         
     except PermissionError as e:
         write_log(

@@ -192,7 +192,7 @@ class DockerSetupGUI(ctk.CTk):
         self.appearance_mode_optionemenu.grid(row=8, column=0, padx=20, pady=(5, 5), sticky="ew")
         
         # UI Scaling Control
-        self.scaling_label = ctk.CTkLabel(self.sidebar_frame, text="UI Scaling: 100%", anchor="w")
+        self.scaling_label = ctk.CTkLabel(self.sidebar_frame, text="UI Scaling", anchor="w")
         self.scaling_label.grid(row=9, column=0, padx=20, pady=(5, 0), sticky="w")
         
         scaling_buttons_frame = ctk.CTkFrame(self.sidebar_frame, fg_color="transparent")
@@ -207,10 +207,9 @@ class DockerSetupGUI(ctk.CTk):
         self.btn_scale_up.grid(row=0, column=1, padx=(5, 0), sticky="ew")
         
         try:
-            current_scale = ctk.get_widget_scaling()
-            self.scaling_label.configure(text=f"UI Scaling: {int(current_scale * 100)}%")
+            self.scaling_label.configure(text="UI Scaling")
         except Exception:
-            self.scaling_label.configure(text="UI Scaling: 100%")
+            self.scaling_label.configure(text="UI Scaling")
         
         # 3. Main Display Area
         self.main_container = ctk.CTkFrame(self, corner_radius=0, fg_color="transparent")
@@ -274,7 +273,7 @@ class DockerSetupGUI(ctk.CTk):
         try:
             ctk.set_widget_scaling(scale_val)
             ctk.set_window_scaling(scale_val)
-            self.scaling_label.configure(text=f"UI Scaling: {int(scale_val * 100)}%")
+            self.scaling_label.configure(text="UI Scaling")
             self.update_idletasks()
         except Exception:
             pass
