@@ -15,7 +15,7 @@ try:
 except ImportError:
     ssl_context = ssl.create_default_context()
 
-VERSION = "1.5.52"
+VERSION = "1.5.53"
 
 def parse_version(v_str: str):
     """
@@ -223,14 +223,14 @@ def perform_binary_swap(download_url: str, target_exe_path: str):
         sys.stdout.flush()
 
         # 5. Replace current process in-place (avoids temp dir race and shell stdin hijacking)
-        # os.execve is used on Unix to pass a clean environment block explicitly
         clean_env = get_clean_env()
         if sys.platform != "win32":
+            # Unix: replace process in-place
             os.execve(target_exe_path, [target_exe_path], clean_env)
         else:
-            os.environ.clear()
-            os.environ.update(clean_env)
-            os.execv(target_exe_path, [target_exe_path])
+            # Windows: delegate synchronously to preserve console attachment
+            ret = subprocess.run([target_exe_path] + sys.argv[1:], env=clean_env)
+            sys.exit(ret.returncode)
         
     except PermissionError as e:
         write_log(
