@@ -26,7 +26,7 @@ jobs:
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal certifi customtkinter darkdetect
+          pip install pyinstaller questionary rich ruamel.yaml python-dotenv requests tzlocal certifi customtkinter darkdetect pydantic
 
       - name: Inject Version into Code (Linux)
         if: runner.os == 'Linux'
@@ -45,14 +45,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           customtkinter_path=$(python -c "import customtkinter, os; print(os.path.dirname(customtkinter.__file__))")
-          pyinstaller --onefile --clean --add-data "resources/services.yml:resources" --add-data "resources/templates.yml:resources" --add-data "$customtkinter_path:customtkinter" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect dockersetup.py
+          pyinstaller --onefile --clean --add-data "$customtkinter_path:customtkinter" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect --exclude-module numpy --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module setuptools --exclude-module pip --exclude-module wheel dockersetup.py
 
       - name: Build Binary (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $customtkinter_path = python -c "import customtkinter, os; print(os.path.dirname(customtkinter.__file__))"
-          pyinstaller --onefile --clean --add-data "resources/services.yml;resources" --add-data "resources/templates.yml;resources" --add-data "${customtkinter_path};customtkinter" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect --uac-admin --icon "resources/app.ico" dockersetup.py
+          pyinstaller --onefile --clean --add-data "${customtkinter_path};customtkinter" --hidden-import=tkinter --hidden-import=customtkinter --hidden-import=darkdetect --exclude-module numpy --exclude-module pandas --exclude-module scipy --exclude-module matplotlib --exclude-module setuptools --exclude-module pip --exclude-module wheel --uac-admin --icon "resources/app.ico" dockersetup.py
 
       - name: Build Setup Installer (Windows)
         if: runner.os == 'Windows'
