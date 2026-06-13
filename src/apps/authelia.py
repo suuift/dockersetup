@@ -1,23 +1,24 @@
 from src.apps.base_app import BaseApp
+
 class AutheliaApp(BaseApp):
     key = "authelia"
     name = "Authelia"
     port = 9091
-    category = "auth"
-    description = "Open-source authentication server providing 2FA and SSO to secure all your services behind a single login portal."
-    stack_group = "core"
+    category = "networking"
+    description = "Lightweight Single Sign-On and 2FA authentication portal for reverse proxies."
+    stack_group = "maintenance"
     recommendations = []
     is_configurable = False
     has_widget = False
     config_model = None
 
     def get_compose_template(self) -> str:
-        return """  authelia:
+        return f"""  authelia:
     image: authelia/authelia:latest
     container_name: authelia
-    <<: *common-keys-core
+    <<: *common-keys-apps
     volumes:
-      - $DOCKERDIR/appdata/authelia/config:/config
+      - {self.get_appdata_dir()}:/config
     ports:
-      - 9091:9091
+      - 9091:9090
 """

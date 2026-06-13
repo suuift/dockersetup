@@ -12,6 +12,12 @@ class BaseApp:
     is_configurable: bool = True
     has_widget: bool = False
     config_model: Optional[type[BaseModel]] = None
+    exclusivity_group: Optional[str] = None
+    required_database_type: Optional[str] = None
+
+    def get_appdata_dir(self) -> str:
+        """Returns the standard container volume host directory for this application."""
+        return f"${{DEPLOY_DIR}}/appdata/{self.key}"
 
     def get_compose_template(self) -> str:
         """Returns the Docker Compose YAML template string for this service."""
