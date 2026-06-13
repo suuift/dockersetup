@@ -322,6 +322,42 @@ def configure_environment() -> bool:
     metadata = get_metadata()
     selected_services = metadata.get("selected_services", [])
 
+    # Dynamic app parameters loading using Pydantic config models
+    from src.apps.loader import load_apps
+    from src.utils.dependency_resolver import check_exclusivity_conflicts, resolve_database_dependencies
+    from src.utils.port_resolver import resolve_port_conflicts
+
+    apps_dict = load_apps()
+
+    # 1. CLI Exclusivity Checks
+    selected_instances = [apps_dict[s] for s in selected_services if s in apps_dict]
+    conflicts = check_exclusivity_conflicts(selected_instances)
+    if conflicts:
+        console.print("[!] EXCLUSIVITY WARNING:", style="bold yellow")
+        for grp, names in conflicts.items():
+            console.print(f"  - Exclusivity Group '{grp}': {', '.join(names)} are all selected.", style="yellow")
+        if not os.getenv("DS_HEADLESS") == "true":
+            proceed = safe_confirm("Running multiple services in the same group is not recommended. Proceed anyway?", default=True)
+            if not proceed:
+                return False
+
+    # 2. CLI Database Dependencies Resolution
+    updated_keys, db_notifs = resolve_database_dependencies(selected_services, apps_dict)
+    if len(updated_keys) > len(selected_services):
+        for notif in db_notifs:
+            console.print(f"[i] {notif}", style="green")
+        selected_services = updated_keys
+        metadata["selected_services"] = selected_services
+        from src.utils.state import set_metadata
+        set_metadata(metadata)
+
+    # 3. CLI Port Conflict Checks
+    env_path = os.path.join(deploy_dir, ".env")
+    port_notifs = resolve_port_conflicts([apps_dict[s] for s in selected_services if s in apps_dict], env_path)
+    if port_notifs:
+        for notif in port_notifs:
+            console.print(f"[i] {notif}", style="green")
+
     console.print("\n--- System Configuration ---", style="yellow")
 
     # Timezone detection

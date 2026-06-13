@@ -320,7 +320,7 @@ def test_app_registry_and_schema():
     assert len(apps_dict) > 0, "No apps loaded"
     
     # Verify some key apps are present
-    expected_apps = ["sonarr", "radarr", "prowlarr", "bazarr"]
+    expected_apps = ["sonarr", "radarr", "prowlarr", "bazarr", "stirling-pdf", "uptime-kuma"]
     for ea in expected_apps:
         assert ea in apps_dict, f"Expected app '{ea}' missing from loaded apps"
         app = apps_dict[ea]
@@ -330,6 +330,55 @@ def test_app_registry_and_schema():
         assert app.stack_group is not None
         assert app.port is not None
         assert app.get_compose_template() != "", f"Empty compose template for '{ea}'"
+
+def test_exclusivity_warnings():
+    from src.utils.dependency_resolver import check_exclusivity_conflicts
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
+    
+    # Test reverse proxies conflict
+    conflict_apps = [apps_dict["caddy"], apps_dict["npm plus (+goaccess)"]]
+    conflicts = check_exclusivity_conflicts(conflict_apps)
+    assert "reverse_proxy" in conflicts
+    assert "Caddy" in conflicts["reverse_proxy"]
+    assert "Nginx Proxy Manager Plus" in conflicts["reverse_proxy"]
+
+def test_database_auto_selection():
+    from src.utils.dependency_resolver import resolve_database_dependencies
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
+    
+    # Authentik requires postgres
+    updated_keys, db_notifs = resolve_database_dependencies(["authentik"], apps_dict)
+    assert "postgresql_cloudbeaver" in updated_keys
+    assert len(db_notifs) == 1
+
+def test_port_conflict_resolution(tmp_path, monkeypatch):
+    from src.utils.port_resolver import resolve_port_conflicts
+    from src.apps.loader import load_apps
+    apps_dict = load_apps()
+    
+    env_file = tmp_path / ".env"
+    env_file.write_text("FLAME_PORT=5005\n")
+    
+    # Select two apps that share port (e.g. Flame and fileflows)
+    flame_app = apps_dict["flame"]
+    fileflows_app = apps_dict["fileflows"]
+    
+    # Manually align them to same port to force resolving
+    flame_app.port = 5001
+    fileflows_app.port = 5001
+    
+    # Mock socket check to always report port 5001 in use so resolver kicks in
+    import src.utils.port_resolver
+    monkeypatch.setattr(src.utils.port_resolver, "is_port_in_use", lambda p: p == 5001)
+    
+    notifs = resolve_port_conflicts([flame_app, fileflows_app], str(env_file))
+    assert len(notifs) > 0
+    
+    # Check that file was updated and ports changed
+    content = env_file.read_text()
+    assert "FILEFLOWS_PORT=" in content
 
 def test_strict_path_normalization_invariant():
     """

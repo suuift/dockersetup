@@ -15,6 +15,7 @@ class NpmPlusGoaccessApp(BaseApp):
     is_configurable = False
     has_widget = False
     config_model = NpmPlusConfig
+    exclusivity_group = "reverse_proxy"
 
     def get_compose_template(self) -> str:
         return """  npm-plus:

@@ -86,12 +86,54 @@ Before starting, ensure your system meets the following criteria:
 Plex, Jellyfin, Tautulli, Sonarr, Radarr, Lidarr, Bazarr, Prowlarr, FlareSolverr, qBittorrent, SABnzbd, Seerr, Recyclarr, Watchtower, Docker-Prune, Homepage.
 
 ### Advanced Add-ons
-*   **Security:** CrowdSec (LAPI + NPM Integration), Vaultwarden (Bitwarden), Authelia.
-*   **Networking:** Nginx Proxy Manager Plus, Tailscale VPN, Cloudflare DDNS.
-*   **Media & Music:** Navidrome (Music Server), Audiobookshelf (Books/Podcasts).
-*   **Management:** Portainer, Dockge, Uptime Kuma, Scrutiny (HDD Health).
-*   **Productivity:** Immich (Photos), Paperless-ngx, Syncthing, CloudCmd, FileBrowser.
+*   **Security:** CrowdSec (LAPI + NPM Integration), Vaultwarden (Bitwarden), Authelia, Authentik.
+*   **Networking:** Nginx Proxy Manager Plus, Caddy, Tailscale VPN, Cloudflare DDNS, Cloudflare Tunnel, Home Assistant, Flame, Dashy.
+*   **Media & Music:** Navidrome (Music Server), Audiobookshelf (Books/Podcasts), Calibre-Web, Komga, FileFlows.
+*   **Management:** Portainer, Dockge, Uptime Kuma, Beszel, Netdata, Scrutiny (HDD Health).
+*   **Productivity:** Immich (Photos), Paperless-ngx, Syncthing, CloudCmd, FileBrowser, Stirling PDF, Mealie, IT-Tools, Code-Server, Dokploy, Docmost, SFTPGo, Firefly III, Changedetection.io, Trilium Notes, SearXNG.
 *   **Games:** Valheim, Satisfactory, Enshrouded, Modded Terraria.
+
+---
+
+## How to Add a New Service
+
+To add a new application to the DockerSetup stack, you only need to create a single Python file under [src/apps/](file:///C:/odysseus/projects/dockersetup/src/apps/). The application loader dynamically registers any class inheriting from `BaseApp`.
+
+### Steps:
+1. Create a new python file in `src/apps/<service_key>.py`.
+2. Define a class inheriting from `BaseApp`.
+3. Set properties: `key`, `name`, `port`, `category`, `description`, and `stack_group`.
+4. (Optional) Set `exclusivity_group` if the service conflicts with others (e.g. `"reverse_proxy"`).
+5. (Optional) Set `required_database_type` (e.g. `"postgres"`) to trigger automatic database companion selection.
+6. Implement `get_compose_template(self)` to return the Docker Compose YAML segment. Use `{self.get_appdata_dir()}` to reference volume storage.
+
+### Code Template:
+```python
+from src.apps.base_app import BaseApp
+
+class MyNewServiceApp(BaseApp):
+    key = "mynewservice"
+    name = "My New Service"
+    port = 8080
+    category = "tools"
+    description = "A short description of what my new service does."
+    stack_group = "maintenance"
+    
+    # Optional settings
+    exclusivity_group = None
+    required_database_type = None
+
+    def get_compose_template(self) -> str:
+        return f"""  mynewservice:
+    image: mynewservice/image:latest
+    container_name: mynewservice
+    <<: *common-keys-apps
+    volumes:
+      - {self.get_appdata_dir()}:/config
+    ports:
+      - 8080:8080
+"""
+```
 
 ---
 

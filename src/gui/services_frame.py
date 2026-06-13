@@ -376,6 +376,56 @@ class ServicesFrame(BaseFrame):
         self.build_services_checkboxes()
 
     def check_recommendations_and_proceed(self):
+        from src.utils.dependency_resolver import check_exclusivity_conflicts, resolve_database_dependencies
+        from src.utils.port_resolver import resolve_port_conflicts
+        from src.utils.paths import get_deploy_dir
+        import os
+
+        # 1. Database Dependency Resolution with User Notifications
+        # Map our registry list to a dict of app key -> instance
+        apps_dict = {entry.key: entry for entry in self.controller.registry}
+        current_keys = [key for key, var in self.controller.chk_vars.items() if var.get()]
+        
+        updated_keys, db_notifs = resolve_database_dependencies(current_keys, apps_dict)
+        if len(updated_keys) > len(current_keys):
+            # Update check box states
+            for k in updated_keys:
+                if k in self.controller.chk_vars:
+                    self.controller.chk_vars[k].set(True)
+            self.on_checkbox_toggle()
+            
+            # Show dependency auto-selection info pop up
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Database Auto-Selected",
+                "\n".join(db_notifs) + "\n\nYou can manually adjust these selections if desired."
+            )
+
+        # 2. Exclusivity Group Soft Warning Pop Up
+        selected_app_instances = [apps_dict[k] for k in updated_keys if k in apps_dict]
+        conflicts = check_exclusivity_conflicts(selected_app_instances)
+        if conflicts:
+            from tkinter import messagebox
+            warning_msg = "Exclusivity Warnings Found:\n\n"
+            for grp, app_names in conflicts.items():
+                warning_msg += f"- Exclusivity Group '{grp}': {', '.join(app_names)} are all selected.\n"
+            warning_msg += "\nRunning multiple services from the same exclusivity group is not recommended. Do you want to proceed anyway?"
+            
+            proceed = messagebox.askyesno("Exclusivity Warning", warning_msg)
+            if not proceed:
+                return
+
+        # 3. Port Conflict Check & Resolution
+        deploy_dir = get_deploy_dir()
+        env_path = os.path.join(deploy_dir, ".env")
+        port_notifs = resolve_port_conflicts(selected_app_instances, env_path)
+        if port_notifs:
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Port Collisions Resolved",
+                "Some selected apps had overlapping port requirements:\n\n" + "\n".join(port_notifs) + "\n\nThese overrides have been automatically saved to your .env file."
+            )
+
         recommendations_map = {}
         for entry in self.controller.registry:
             if entry.recommendations:
