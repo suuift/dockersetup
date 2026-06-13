@@ -432,13 +432,15 @@ class ServicesFrame(BaseFrame):
                 recommendations_map[entry.key] = entry.recommendations
                 
         missing_recs = []
-        for svc in self.controller.selected_services:
-            if svc in recommendations_map:
-                for rec in recommendations_map[svc]:
-                    rec = rec.strip()
-                    if rec and rec not in self.controller.selected_services and rec not in missing_recs:
-                        if any(e.key == rec for e in self.controller.registry):
-                            missing_recs.append(rec)
+        # Only prompt companion recommendations if Advanced Custom mode is enabled
+        if self.controller.var_advanced_mode.get():
+            for svc in self.controller.selected_services:
+                if svc in recommendations_map:
+                    for rec in recommendations_map[svc]:
+                        rec = rec.strip()
+                        if rec and rec not in self.controller.selected_services and rec not in missing_recs:
+                            if any(e.key == rec for e in self.controller.registry):
+                                missing_recs.append(rec)
                             
         if missing_recs:
             dialog = ctk.CTkToplevel(self)

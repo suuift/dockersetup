@@ -80,12 +80,14 @@ def select_services() -> list:
             rec_map[item.source] = item.recommendations
 
     suggested = []
-    for s in selected:
-        if s in rec_map:
-            for rec in rec_map[s]:
-                if rec not in selected and rec not in suggested and rec.strip():
-                    suggested.append(rec)
-
+    # Only suggest companion recommendations if custom/advanced setup mode (Tier 2) is chosen
+    if choice == "2":
+        for s in selected:
+            if s in rec_map:
+                for rec in rec_map[s]:
+                    if rec not in selected and rec not in suggested and rec.strip():
+                        suggested.append(rec)
+    
     if suggested:
         console.print("\n--- Recommended Add-ons ---", style="yellow")
         console.print("Based on your selections, we recommend adding these services:", style="grey50")
